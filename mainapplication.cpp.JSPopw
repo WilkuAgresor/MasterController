@@ -1,0 +1,100 @@
+#include "mainapplication.hpp"
+#include <limits>
+#include <random>
+
+MainApplication::MainApplication(QObject *parent) : QObject(parent)
+  , mKeyKeeper(this)
+{
+    mSocket = new QUdpSocket(this);
+
+    if(!mSocket->bind(QHostAddress::AnyIPv4, 1234, QAbstractSocket::DontShareAddress))
+    {
+        throw std::runtime_error("Unable to bind main socket. Shutting down");
+    }
+
+    mReceivingSocket = new QUdpSocket(this);
+    if(!mReceivingSocket->bind(QHostAddress::AnyIPv4, 12345, QAbstractSocket::DontShareAddress))
+    {
+        throw std::runtime_error("Unable to bind receiving socket. Shutting down");
+    }
+
+    //test DB read:
+    qDebug() << mDb.getDevicesControllerInfo("Elektrozaczep").print();
+}
+
+void MainApplication::receiveResponse()
+{
+    int i = 0;
+    while(mSocket->hasPendingDatagrams())
+    {
+        qDebug() << "datagram: "<<QString::number(i);
+        auto datagram = mSocket->receiveDatagram();
+
+        if(datagram.data().size() == 0)
+            continue;
+
+        qDebug() << "Result: " << datagram.data();
+
+        auto keyEntry = mKeyKeeper.getKey(datagram.senderAddress());
+
+        changeConnectionState(keyEntry.controllerName, ConnectionState::SUCCESS);
+    }
+}
+
+uint64_t MainApplication::generateNewKey()
+{
+    std::random_device rd;
+    std::mt19937 mt(rd());
+    std::uniform_int_distribution<uint64_t> dist(0,std::numeric_limits<uint64_t>::max());
+
+    return dist(mt);
+}
+
+void MainApplication::sendRequest(QString deviceName, QString payload)
+{
+    auto controllerInfo = mDb.getDevicesControllerInfo(deviceName);
+
+    if(!mKeyKeeper.isAvailableForSending(controllerInfo.name))
+    {
+        qDebug() << "Another operation is in progress";
+        emit resourceBusy();
+        return;
+    }
+
+    changeConnectionState(controllerInfo.name, ConnectionState::IN_PROGRESS);
+
+    QHostAddress address (controllerInfo.ipAddr);
+
+    mKeyKeeper.addEntry(controllerInfo.name, address);
+
+    Message message(controllerInfo.key, payload);
+
+    qDebug() << "sending to: "<<controllerInfo.ipAddr<<":"<<controllerInfo.port;
+
+    QNetworkDatagram datagram(message.getData(), address, controllerInfo.port);
+
+    mSocket->writeDatagram(std::move(datagram));
+    connect(mSocket, SIGNAL(readyRead()),this,SLOT(receiveResponse()));
+
+    mKeyKeeper.startTimer(controllerInfo.name);
+}
+
+std::vector<QString> MainApplication::getDeviceNames()
+{
+    return mDb.getDeviceNames();
+}
+
+void MainApplication::changeConnectionState(QString controllerName, ConnectionState state)
+{
+    if(state == ConnectionState::FAILURE)
+        emit finished(controllerName, "Failed");
+    else if(state == ConnectionState::TIME_OUT)
+    {
+        mKeyKeeper.eraseEntry(controllerName);
+        emit finished(controllerName, "Timed out");
+    }
+    else if(state == ConnectionState::SUCCESS)
+        emit finished(controllerName, "Success");
+    else if(state == ConnectionState::IN_PROGRESS)
+        emit inProgress(controllerName);
+}
