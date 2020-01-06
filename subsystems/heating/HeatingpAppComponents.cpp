@@ -1,4 +1,5 @@
 #include "HeatingpAppComponents.hpp"
+#include <../common/messages/replyMessage.hpp>
 
 #include <components.hpp>
 
@@ -50,13 +51,9 @@ void HeatingAppComponents::reprovisionTerminalData(QHostAddress terminalAddr)
         zoneSettings.emplace_back(database->getHeatZoneSettings(1, zoneName));
     }
 
-    for(auto& zone: zoneSettings)
-    {
-        qDebug() << "zone setting: "<<zone.toString().toUtf8().constData();
-    }
-    settingsPayload.mCurrentProfile = HeatProfile(1, database->getHeatProfileName(1));
     settingsPayload.mMasterOn = database->getHeatMasterOn();
     settingsPayload.mZoneSettings = zoneSettings;
+    settingsPayload.mProfiles = database->getHeatProfiles();
 
     HeatSettingsMessage message(settingsPayload);
 
@@ -64,20 +61,73 @@ void HeatingAppComponents::reprovisionTerminalData(QHostAddress terminalAddr)
 
 
     mSystemComponents->mSender->send(terminalAddr, TERMINAL_LISTEN_PORT, message.toData());
-
-//    database->get
-
-
-//    for(const auto& controller: mSystemComponents->mControllers)
-//    {
-//        if( controller.type == ControllerInfo::Type::TERMINALv1)
-//        {
-
-//            QHostAddress address(controller.ipAddr);
-//            mSystemComponents->mSender->send(address, TERMINAL_LISTEN_PORT, message.toData());
-
-////            QHostAddress address(controller.ipAddr);
-////            mComponents.mSender->send(address,TERMINAL_LISTEN_PORT, message.toData());
-//        }
-//    }
 }
+
+void HeatingAppComponents::handleMessage(const Message &message, QHostAddress fromAddr, int fromPort)
+{
+    auto header = message.getHeader();
+
+    switch(header.getType())
+    {
+    case MessageType::HEAT_SETTINGS_UPDATE:
+        handleSettingsUpdate(static_cast<const HeatSettingsMessage&>(message), fromAddr, fromPort);
+        break;
+        default:
+        qDebug() << "received unknown HEAT message";
+    }
+}
+
+void HeatingAppComponents::handleSettingsUpdate(const HeatSettingsMessage &message, QHostAddress fromAddr, int fromPort)
+{
+    qDebug() << "handle settings update";
+    auto payload = message.payload();
+    auto database = DatabaseFactory::createDatabaseConnection("heating");
+
+    if(payload.mMasterOn != database->getHeatMasterOn())
+    {
+        database->setHeatMasterOn(payload.mMasterOn);
+        qDebug() << "setting master on/off";
+    }
+
+    auto profileId = payload.mProfiles.at(0).mId;
+
+    for(auto& zoneSetting: database->getHeatZoneSettings(profileId))
+    {
+        for(auto& pendingChange: payload.mZoneSettings)
+        {
+            if(pendingChange.mZoneId == zoneSetting.mZoneId)
+            {
+                if(pendingChange.mIsOn != zoneSetting.mIsOn)
+                {
+                    database->setHeatZoneIsOn(pendingChange.mIsOn,
+                                              database->getHeatZoneId(pendingChange.mZoneId),
+                                              profileId);
+
+                    qDebug() << "setting changed zone on/off";
+                }
+                if(pendingChange.mSetTemperature != zoneSetting.mSetTemperature)
+                {
+                    database->setHeatZoneTemperature(pendingChange.mSetTemperature,
+                                                     database->getHeatZoneId(pendingChange.mZoneId),
+                                                     profileId);
+                    qDebug() << "setting changed zone temperature";
+                }
+                break;
+            }
+        }
+    }
+
+    auto header = message.getHeader();
+    if(header.mExpectReply)
+    {
+        ReplyPayload replyPayload(Status::OK);
+        ReplyMessage replyMessage(replyPayload);
+
+        qDebug() << "sending response: "<<replyMessage.toString() <<" to: "<<fromAddr.toString() <<":"<<header.mReplyPort;
+
+        mSystemComponents->mSender->send(fromAddr, header.mReplyPort, replyMessage.toData());
+        qDebug() << "sent";
+
+    }
+}
+

@@ -61,4 +61,8 @@ void MessageHandler::run()
         qDebug() << "topology request init";
         mComponents->mHeatingComponents->reprovisionTerminalData(mDatagram.senderAddress());
     }
+    else if(isHeatingMessage(header.getType()))
+    {
+        mComponents->mHeatingComponents->handleMessage(msg, mDatagram.senderAddress(), mDatagram.senderPort());
+    }
 }

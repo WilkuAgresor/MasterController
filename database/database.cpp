@@ -278,6 +278,18 @@ DeviceInfo Database::getDeviceInfo(const QString &deviceName)
     return DeviceInfo{name, controllerName, type, state, threshold, value, upDown, hardwareId, trigger};
 }
 
+std::vector<HeatZoneSetting> Database::getHeatZoneSettings(int profileId)
+{
+    std::lock_guard<std::recursive_mutex> _lock(mMutex);
+
+    std::vector<HeatZoneSetting> zones;
+    for(auto& zoneName: getHeatingZoneNames())
+    {
+        zones.push_back(getHeatZoneSettings(profileId, zoneName));
+    }
+    return zones;
+}
+
 HeatZoneSetting Database::getHeatZoneSettings(int profileId, const QString& zoneName)
 {
     std::lock_guard<std::recursive_mutex> _lock(mMutex);
@@ -316,6 +328,31 @@ HeatZoneSetting Database::getHeatZoneSettings(int profileId, const QString& zone
     }
 
     return HeatZoneSetting(temp,isOn,zoneName);
+}
+
+std::vector<HeatProfile> Database::getHeatProfiles()
+{
+    std::lock_guard<std::recursive_mutex> _lock(mMutex);
+
+    std::vector<HeatProfile> profiles;
+    QString queryString = R"(select * from HeatingProfile)";
+
+    qDebug() << "query: "<<queryString;
+
+    auto query = executeSqlQuery(queryString);
+
+    int idId    = query.record().indexOf("HeatingProfileId");
+    int idName      = query.record().indexOf("HeatingProfileName");
+
+    while(query.next())
+    {
+        HeatProfile profile;
+        profile.mId = query.value(idId).toInt();
+        profile.mName = query.value(idName).toString();
+        profiles.push_back(profile);
+    }
+
+    return profiles;
 }
 
 std::vector<QString> Database::getHeatingZoneNames()
@@ -404,4 +441,61 @@ bool Database::getHeatMasterOn()
     {
         return true;
     }
+}
+
+void Database::setHeatMasterOn(bool value)
+{
+    std::lock_guard<std::recursive_mutex> _lock(mMutex);
+
+    int intValue;
+    if(value)
+        intValue = 1;
+    else
+        intValue = 0;
+
+    QString queryString = "UPDATE HeatingSystem SET HeatingMasterIsOn = ";
+    queryString.append(QString::number(intValue));
+    queryString.append(R"( WHERE HeatingSystemId = 1)");
+
+    qDebug() << "query: "<< queryString;
+
+    executeSqlQuery(queryString);
+}
+
+void Database::setHeatZoneTemperature(int temperature, int zoneId, int profileId)
+{
+    std::lock_guard<std::recursive_mutex> _lock(mMutex);
+
+    QString queryString = "UPDATE HeatingZoneSetting SET HeatingZoneSettingTemp = ";
+    queryString.append(QString::number(temperature));
+    queryString.append(R"( WHERE HeatingZoneId = )");
+    queryString.append(QString::number(zoneId));
+    queryString.append(R"( AND HeatingProfileId = )");
+    queryString.append(QString::number(profileId));
+
+    qDebug() << "query: "<< queryString;
+
+    executeSqlQuery(queryString);
+}
+
+void Database::setHeatZoneIsOn(bool value, int zoneId, int profileId)
+{
+    std::lock_guard<std::recursive_mutex> _lock(mMutex);
+
+    int intValue;
+    if(value)
+        intValue = 1;
+    else
+        intValue = 0;
+
+    QString queryString = "UPDATE HeatingZoneSetting SET HeatingZoneSettingIsOn = ";
+    queryString.append(QString::number(intValue));
+    queryString.append(R"( WHERE HeatingZoneId = )");
+    queryString.append(QString::number(zoneId));
+    queryString.append(R"( AND HeatingProfileId = )");
+    queryString.append(QString::number(profileId));
+
+    qDebug() << "query: "<< queryString;
+
+    executeSqlQuery(queryString);
 }

@@ -63,6 +63,7 @@ public:
     DeviceInfo getDeviceInfo(const QString& deviceName);
     DeviceInfo getDeviceInfoHw(const QString& hardwareId);
 
+    std::vector<HeatZoneSetting> getHeatZoneSettings(int profileId);
     HeatZoneSetting getHeatZoneSettings(const QString &profileName, const QString &zoneName);
     HeatZoneSetting getHeatZoneSettings(int profileId, const QString &zoneName);
 
@@ -72,7 +73,13 @@ public:
     int getHeatProfileId(const QString& profileName);
 
     QString getHeatProfileName(int profileId);
-    bool getHeatMasterOn();
+    std::vector<HeatProfile> getHeatProfiles();
+
+    bool getHeatMasterOn();    
+    void setHeatMasterOn(bool value);
+
+    void setHeatZoneTemperature(int temperature, int zoneId, int profileId);
+    void setHeatZoneIsOn(bool value, int zoneId, int profileId);
 private:
     QSqlQuery executeSqlQuery(const QString& query);
 

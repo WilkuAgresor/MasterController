@@ -16,6 +16,9 @@ public:
 
     HeatSettingsPayload getCurrentHeatStatus();
     void reprovisionTerminalData(QHostAddress terminalAddr);
+    void handleMessage(const Message& message, QHostAddress fromAddr, int fromPort);
+    void handleSettingsUpdate(const HeatSettingsMessage &message, QHostAddress fromAddr, int fromPort);
+
 
     TemperatureSensorDataBank mSensorDataBank;
     Components* mSystemComponents;
