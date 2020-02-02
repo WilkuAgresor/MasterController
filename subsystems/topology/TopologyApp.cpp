@@ -21,6 +21,10 @@ void TopologyApp::run()
             {
                 qDebug() << "TopologyApp: sending checkin request " << controller.ipAddr;
                 TopologyRequestCheckinMessage message;
+                auto header = message.getHeader();
+                header.mReplyPort = SERVER_LISTEN_PORT;
+                message.updateHeader(header);
+
                 QHostAddress address(controller.ipAddr);
                 mComponents.mSender->send(address,TERMINAL_LISTEN_PORT, message.toData());
             }

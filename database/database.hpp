@@ -80,6 +80,8 @@ public:
 
     void setHeatZoneTemperature(int temperature, int zoneId, int profileId);
     void setHeatZoneIsOn(bool value, int zoneId, int profileId);
+    HeatZoneGuiSettings getHeatZoneGuiSettings(const QString &zoneName);
+    HeatZoneGuiSettings getHeatZoneGuiSettings(int zoneId);
 private:
     QSqlQuery executeSqlQuery(const QString& query);
 

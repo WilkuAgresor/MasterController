@@ -290,6 +290,43 @@ std::vector<HeatZoneSetting> Database::getHeatZoneSettings(int profileId)
     return zones;
 }
 
+HeatZoneGuiSettings Database::getHeatZoneGuiSettings(const QString& zoneName)
+{
+    auto zoneId = getHeatZoneId(zoneName);
+    return getHeatZoneGuiSettings(zoneId);
+}
+
+HeatZoneGuiSettings Database::getHeatZoneGuiSettings(int zoneId)
+{
+    QString queryString = R"(select * from HeatingZoneGuiSetting where HeatingZoneId=)";
+    queryString.append(QString::number(zoneId));
+
+    qDebug() << queryString;
+
+    auto query = executeSqlQuery(queryString);
+
+    int idX = query.record().indexOf("x");
+    int idY = query.record().indexOf("y");
+    int idPlane = query.record().indexOf("plane");
+    int idHeight = query.record().indexOf("height");
+    int idWidth = query.record().indexOf("width");
+    int idFontSize = query.record().indexOf("fontSize");
+
+    query.next();
+
+    HeatZoneGuiSettings guiSettings;
+    guiSettings.mX = query.value(idX).toInt();
+    guiSettings.mY = query.value(idY).toInt();
+    guiSettings.mPlane = query.value(idPlane).toInt();
+    guiSettings.mHeight = query.value(idHeight).toInt();
+    guiSettings.mWidth = query.value(idWidth).toInt();
+    guiSettings.mFontSize = query.value(idFontSize).toInt();
+
+    qDebug() << "heat zone gui settings: "<<guiSettings.toString();
+
+    return guiSettings;
+}
+
 HeatZoneSetting Database::getHeatZoneSettings(int profileId, const QString& zoneName)
 {
     std::lock_guard<std::recursive_mutex> _lock(mMutex);
@@ -326,8 +363,8 @@ HeatZoneSetting Database::getHeatZoneSettings(int profileId, const QString& zone
     {
         isOn = true;
     }
-
-    return HeatZoneSetting(temp,isOn,zoneName);
+    auto guiSettings = getHeatZoneGuiSettings(zoneId);
+    return HeatZoneSetting(temp,isOn,zoneName, guiSettings);
 }
 
 std::vector<HeatProfile> Database::getHeatProfiles()

@@ -56,7 +56,6 @@ void HeatingAppComponents::reprovisionTerminalData(QHostAddress terminalAddr)
     settingsPayload.mProfiles = database->getHeatProfiles();
 
     HeatSettingsMessage message(settingsPayload);
-
     qDebug() <<"heat reprovision settings: " << settingsPayload.toString();
 
 
@@ -72,6 +71,11 @@ void HeatingAppComponents::handleMessage(const Message &message, QHostAddress fr
     case MessageType::HEAT_SETTINGS_UPDATE:
         handleSettingsUpdate(static_cast<const HeatSettingsMessage&>(message), fromAddr, fromPort);
         break;
+
+    case MessageType::HEAT_SETTINGS_RETRIEVE:
+        handleSettingsRetrieve(static_cast<const HeatRetrieveMessage&>(message), fromAddr);
+        break;
+
         default:
         qDebug() << "received unknown HEAT message";
     }
@@ -129,5 +133,26 @@ void HeatingAppComponents::handleSettingsUpdate(const HeatSettingsMessage &messa
         qDebug() << "sent";
 
     }
+}
+
+void HeatingAppComponents::handleSettingsRetrieve(const HeatRetrieveMessage &message, QHostAddress fromAddr)
+{
+    auto payload = message.payload();
+    int profileId = payload.mProfileId;
+    qDebug() << "handle settings retrieve for profile: "<<profileId;
+
+    auto database = DatabaseFactory::createDatabaseConnection("heating");
+
+    HeatSettingsPayload respPayload;
+    respPayload.mMasterOn = database->getHeatMasterOn();
+    respPayload.mZoneSettings = database->getHeatZoneSettings(profileId);
+
+    HeatSettingsMessage respMessage(respPayload);
+
+    auto header = message.getHeader();
+    qDebug() << "sending response: "<<respMessage.toString() <<" to: "<<fromAddr.toString() <<":"<<header.mReplyPort;
+
+    mSystemComponents->mSender->send(fromAddr, header.mReplyPort, respMessage.toData());
+    qDebug() << "sent";
 }
 
