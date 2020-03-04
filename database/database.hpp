@@ -4,6 +4,7 @@
 #include <database/devicedb.hpp>
 #include "../common/json/deviceJson.hpp"
 #include <../common/subsystems/heating/HeatingZoneSettings.hpp>
+#include <../common/subsystems/lights/LightControllerSettings.hpp>
 
 struct ControllerInfo
 {
@@ -82,6 +83,14 @@ public:
     void setHeatZoneIsOn(bool value, int zoneId, int profileId);
     HeatZoneGuiSettings getHeatZoneGuiSettings(const QString &zoneName);
     HeatZoneGuiSettings getHeatZoneGuiSettings(int zoneId);
+
+    LightControllerSettings getLightSetting(int id);
+    std::vector<LightControllerSettings> getLightSettings();
+
+    void setLightsIsOn(int lightId, bool isOn);
+    void setLightsDimm(int lightId, int dimm);
+    void setLightsColor(int lightId, const QString& color);
+
 private:
     QSqlQuery executeSqlQuery(const QString& query);
 

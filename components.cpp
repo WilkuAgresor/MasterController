@@ -8,5 +8,5 @@ Components::Components(QObject *parent)
     mControllers = mainDb->getControllers();
 
     mHeatingComponents = std::unique_ptr<HeatingAppComponents>(new HeatingAppComponents(this));
-
+    mLightsComponents = std::unique_ptr<LightsAppComponents>(new LightsAppComponents(this));
 }

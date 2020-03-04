@@ -14,8 +14,5 @@ public:
 
     void run();
 
-
-    int i = 0;
-
     HeatingAppComponents mComponents;
 };

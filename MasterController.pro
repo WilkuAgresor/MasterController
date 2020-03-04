@@ -16,6 +16,8 @@ DEFINES += QT_DEPRECATED_WARNINGS
 SOURCES += \
     ../common/subsystems/heating/HeatingRetrieveMessage.cpp \
     ../common/subsystems/heating/HeatingZoneSettings.cpp \
+    ../common/subsystems/lights/LightControllerSettings.cpp \
+    ../common/subsystems/lights/LightsRetrieveMessage.cpp \
     ../common/subsystems/topology/topologyMessages.cpp \
         main.cpp \
     database/database.cpp \
@@ -34,6 +36,8 @@ SOURCES += \
     ../common/json/jsonSerialization.cpp \
     ../common/messages/replyMessage.cpp \
     subsystems/heating/HeatingpAppComponents.cpp \
+    subsystems/lights/LightsApp.cpp \
+    subsystems/lights/LightsAppComponents.cpp \
     subsystems/topology/TopologyApp.cpp \
     terminalListener/terminalListener.cpp \
     terminalListener/messageHandler.cpp \
@@ -59,6 +63,9 @@ else: unix:!android: target.path = /opt/$${TARGET}/bin
 HEADERS += \
     ../common/subsystems/heating/HeatingRetrieveMessage.hpp \
     ../common/subsystems/heating/HeatingZoneSettings.hpp \
+    ../common/subsystems/lights/LightControllerSettings.hpp \
+    ../common/subsystems/lights/LightsDictionary.hpp \
+    ../common/subsystems/lights/LightsRetrieveMessage.hpp \
     ../common/subsystems/topology/topologyMessages.hpp \
     connection/connectiontimer.hpp \
     connection/connectionmonitor.hpp \
@@ -83,6 +90,8 @@ HEADERS += \
     ../common/CommonDefinitions.hpp \
     components.hpp \
     subsystems/heating/HeatingpAppComponents.hpp \
+    subsystems/lights/LightsApp.hpp \
+    subsystems/lights/LightsAppComponents.hpp \
     subsystems/topology/TopologyApp.hpp \
     terminalListener/terminalListener.hpp \
     terminalListener/messageHandler.hpp \

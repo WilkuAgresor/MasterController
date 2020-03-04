@@ -292,12 +292,16 @@ std::vector<HeatZoneSetting> Database::getHeatZoneSettings(int profileId)
 
 HeatZoneGuiSettings Database::getHeatZoneGuiSettings(const QString& zoneName)
 {
+    std::lock_guard<std::recursive_mutex> _lock(mMutex);
+
     auto zoneId = getHeatZoneId(zoneName);
     return getHeatZoneGuiSettings(zoneId);
 }
 
 HeatZoneGuiSettings Database::getHeatZoneGuiSettings(int zoneId)
 {
+    std::lock_guard<std::recursive_mutex> _lock(mMutex);
+
     QString queryString = R"(select * from HeatingZoneGuiSetting where HeatingZoneId=)";
     queryString.append(QString::number(zoneId));
 
@@ -325,6 +329,143 @@ HeatZoneGuiSettings Database::getHeatZoneGuiSettings(int zoneId)
     qDebug() << "heat zone gui settings: "<<guiSettings.toString();
 
     return guiSettings;
+}
+
+LightControllerSettings Database::getLightSetting(int id)
+{
+    std::lock_guard<std::recursive_mutex> _lock(mMutex);
+
+    QString queryString = R"(SELECT *
+                          FROM LightsControl
+                          LEFT JOIN LightsControlGuiSetting
+                          ON LightsControl.LightsControlId = LightsControlGuiSetting.LightsControlId
+                          WHERE LightsControl.LightsControlId = )";
+    queryString.append(QString::number(id));
+
+    qDebug() << queryString;
+    auto query= executeSqlQuery(queryString);
+
+    int idId = query.record().indexOf("LightsControlId");
+    int idName = query.record().indexOf("LightsControlName");
+    int idType = query.record().indexOf("LightsControlType");
+    int idIsOn = query.record().indexOf("LightsControlOn");
+    int idDimm = query.record().indexOf("LightsControlDimm");
+    int idColor = query.record().indexOf("LightsControlRGB");
+    int idX = query.record().indexOf("x");
+    int idY = query.record().indexOf("y");
+    int idPlane = query.record().indexOf("plane");
+
+    query.next();
+
+    LightControllerSettings lightSettings;
+    lightSettings.mId = query.value(idId).toInt();
+    lightSettings.mName = query.value(idName).toString();
+    lightSettings.mType = query.value(idType).toInt();
+
+    auto onVal = query.value(idIsOn).toInt();
+    if(onVal == 0) lightSettings.mIsOn = false;
+    else lightSettings.mIsOn = false;
+
+    lightSettings.mDimm = query.value(idDimm).toInt();
+    lightSettings.mColor = query.value(idColor).toString();
+    lightSettings.mGuiSettings.mX = query.value(idX).toInt();
+    lightSettings.mGuiSettings.mY = query.value(idY).toInt();
+    lightSettings.mGuiSettings.mPlane = query.value(idPlane).toInt();
+
+    qDebug() << "light settings: "<<lightSettings.toString();
+
+    return lightSettings;
+
+}
+
+std::vector<LightControllerSettings> Database::getLightSettings()
+{
+    std::lock_guard<std::recursive_mutex> _lock(mMutex);
+
+    std::vector<LightControllerSettings> lightControllers;
+
+    QString queryString = R"(SELECT *
+                          FROM LightsControl
+                          LEFT JOIN LightsControlGuiSetting
+                          ON LightsControl.LightsControlId = LightsControlGuiSetting.LightsControlId)";
+
+    auto query = executeSqlQuery(queryString);
+
+    int idId = query.record().indexOf("LightsControlId");
+    int idName = query.record().indexOf("LightsControlName");
+    int idType = query.record().indexOf("LightsControlType");
+    int idIsOn = query.record().indexOf("LightsControlOn");
+    int idDimm = query.record().indexOf("LightsControlDimm");
+    int idColor = query.record().indexOf("LightsControlRGB");
+    int idX = query.record().indexOf("x");
+    int idY = query.record().indexOf("y");
+    int idPlane = query.record().indexOf("plane");
+
+    while(query.next())
+    {
+        LightControllerSettings lightSettings;
+        lightSettings.mId = query.value(idId).toInt();
+        lightSettings.mName = query.value(idName).toString();
+        lightSettings.mType = query.value(idType).toInt();
+
+        auto onVal = query.value(idIsOn).toInt();
+        if(onVal == 0) lightSettings.mIsOn = false;
+        else lightSettings.mIsOn = false;
+
+        lightSettings.mDimm = query.value(idDimm).toInt();
+        lightSettings.mColor = query.value(idColor).toString();
+        lightSettings.mGuiSettings.mX = query.value(idX).toInt();
+        lightSettings.mGuiSettings.mY = query.value(idY).toInt();
+        lightSettings.mGuiSettings.mPlane = query.value(idPlane).toInt();
+
+        qDebug() << "light settings: "<<lightSettings.toString();
+        lightControllers.push_back(lightSettings);
+    }
+    return lightControllers;
+}
+
+void Database::setLightsIsOn(int lightId, bool isOn)
+{
+    std::lock_guard<std::recursive_mutex> _lock(mMutex);
+
+    int intValue;
+    if(isOn)
+        intValue = 1;
+    else
+        intValue = 0;
+
+    QString queryString = "UPDATE LightsControl SET LightsControlOn = ";
+    queryString.append(QString::number(intValue));
+    queryString.append(R"( WHERE LightsControlId = )");
+    queryString.append(QString::number(lightId));
+
+    executeSqlQuery(queryString);
+}
+
+void Database::setLightsDimm(int lightId, int dimm)
+{
+    std::lock_guard<std::recursive_mutex> _lock(mMutex);
+
+    QString queryString = "UPDATE LightsControl SET LightsControlDimm = ";
+    queryString.append(QString::number(dimm));
+    queryString.append(R"( WHERE LightsControlId = )");
+    queryString.append(QString::number(lightId));
+
+    qDebug() << queryString;
+
+    executeSqlQuery(queryString);
+}
+
+void Database::setLightsColor(int lightId, const QString &color)
+{
+    std::lock_guard<std::recursive_mutex> _lock(mMutex);
+
+    QString queryString = "UPDATE LightsControl SET LightsControlDimm = ";
+    queryString.append(color);
+    queryString.append(R"( WHERE LightsControlId = )");
+    queryString.append(QString::number(lightId));
+
+    executeSqlQuery(queryString);
 }
 
 HeatZoneSetting Database::getHeatZoneSettings(int profileId, const QString& zoneName)
@@ -536,3 +677,4 @@ void Database::setHeatZoneIsOn(bool value, int zoneId, int profileId)
 
     executeSqlQuery(queryString);
 }
+
