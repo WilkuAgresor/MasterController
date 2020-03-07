@@ -81,7 +81,7 @@ void HeatingAppComponents::handleMessage(const Message &message, QHostAddress fr
     }
 }
 
-void HeatingAppComponents::handleSettingsUpdate(const HeatSettingsMessage &message, QHostAddress fromAddr, int fromPort)
+void HeatingAppComponents::handleSettingsUpdate(const HeatSettingsMessage &message, QHostAddress fromAddr, int /*fromPort*/)
 {
     qDebug() << "handle settings update";
     auto payload = message.payload();

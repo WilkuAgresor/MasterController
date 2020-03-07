@@ -54,6 +54,7 @@ void LightsAppComponents::handleLightsUpdate(const LightSettingsMessage &message
 
         if(light.mIsOn != dbSettings.mIsOn)
         {
+            qDebug() <<"setting lights "<< light.mIsOn;
             database->setLightsIsOn(light.mId, light.mIsOn);
         }
 

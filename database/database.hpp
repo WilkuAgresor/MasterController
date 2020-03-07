@@ -5,6 +5,7 @@
 #include "../common/json/deviceJson.hpp"
 #include <../common/subsystems/heating/HeatingZoneSettings.hpp>
 #include <../common/subsystems/lights/LightControllerSettings.hpp>
+#include <hardware/PinMapping.hpp>
 
 struct ControllerInfo
 {
@@ -90,6 +91,8 @@ public:
     void setLightsIsOn(int lightId, bool isOn);
     void setLightsDimm(int lightId, int dimm);
     void setLightsColor(int lightId, const QString& color);
+
+    PinMapping getLightPinMapping(int lightId);
 
 private:
     QSqlQuery executeSqlQuery(const QString& query);

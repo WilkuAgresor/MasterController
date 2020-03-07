@@ -34,6 +34,8 @@ Database::~Database()
 
 QSqlQuery Database::executeSqlQuery(const QString &query)
 {
+    qDebug() << "DB query: "<< query;
+
     if(mModuleName.isEmpty())
     {
         return QSqlQuery(query);
@@ -364,7 +366,7 @@ LightControllerSettings Database::getLightSetting(int id)
 
     auto onVal = query.value(idIsOn).toInt();
     if(onVal == 0) lightSettings.mIsOn = false;
-    else lightSettings.mIsOn = false;
+    else lightSettings.mIsOn = true;
 
     lightSettings.mDimm = query.value(idDimm).toInt();
     lightSettings.mColor = query.value(idColor).toString();
@@ -410,7 +412,7 @@ std::vector<LightControllerSettings> Database::getLightSettings()
 
         auto onVal = query.value(idIsOn).toInt();
         if(onVal == 0) lightSettings.mIsOn = false;
-        else lightSettings.mIsOn = false;
+        else lightSettings.mIsOn = true;
 
         lightSettings.mDimm = query.value(idDimm).toInt();
         lightSettings.mColor = query.value(idColor).toString();
@@ -451,8 +453,6 @@ void Database::setLightsDimm(int lightId, int dimm)
     queryString.append(R"( WHERE LightsControlId = )");
     queryString.append(QString::number(lightId));
 
-    qDebug() << queryString;
-
     executeSqlQuery(queryString);
 }
 
@@ -468,13 +468,52 @@ void Database::setLightsColor(int lightId, const QString &color)
     executeSqlQuery(queryString);
 }
 
+PinMapping Database::getLightPinMapping(int lightId)
+{
+    std::lock_guard<std::recursive_mutex> _lock(mMutex);
+
+    QString queryString = R"(SELECT GrandCentralGroupings.GroupingId, GrandCentralGroupings.GroupingInputPins, GrandCentralGroupings.GroupingOutputPins, GrandCentralGroupings.NotifyClick, GrandCentralGroupings.NotifyDoubleClick, GrandCentralGroupings.NotifyPress
+                          FROM GrandCentralGroupings
+                          LEFT JOIN LightsControl
+                          ON LightsControl.HardwareGrouping = GrandCentralGroupings.GroupingId
+                          WHERE LightsControl.LightsControlId = )";
+    queryString.append(QString::number(lightId));
+
+    qDebug() << queryString;
+    auto query= executeSqlQuery(queryString);
+
+    int idId = query.record().indexOf("GroupingId");
+    int idInput = query.record().indexOf("GroupingInputPins");
+    int idOutput = query.record().indexOf("GroupingOutputPins");
+    int idClick = query.record().indexOf("NotifyClick");
+    int idDClick = query.record().indexOf("NotifyDoubleClick");
+    int idPress = query.record().indexOf("NotifyPress");
+
+    query.next();
+
+    auto id = query.value(idId).toInt();
+    auto input = query.value(idInput).toString();
+    auto output = query.value(idOutput).toString();
+    auto clickInt = query.value(idClick).toInt();
+    auto dClickInt = query.value(idDClick).toInt();
+    auto press = query.value(idPress).toInt();
+
+    PinMapping mapping(id);
+
+    mapping.setInputPins(input);
+    mapping.setOutputPins(output);
+    mapping.setNotifyClick(clickInt>0);
+    mapping.setNotifyDoubleClick(dClickInt>0);
+    mapping.setNofityPress(press>0);
+
+    return mapping;
+}
+
 HeatZoneSetting Database::getHeatZoneSettings(int profileId, const QString& zoneName)
 {
     std::lock_guard<std::recursive_mutex> _lock(mMutex);
 
     auto zoneId = getHeatZoneId(zoneName);
-
-    qDebug() << "profileId: "<< profileId <<" zone id: "<<zoneId;
 
     QString queryString = R"(select * from HeatingZoneSetting where HeatingZoneId=)";
     queryString.append(QString::number(zoneId));
@@ -482,8 +521,6 @@ HeatZoneSetting Database::getHeatZoneSettings(int profileId, const QString& zone
     queryString.append("HeatingProfileId=");
     queryString.append(QString::number(profileId));
    // queryString.append(R"(")");
-
-    qDebug() << "query: "<<queryString;
 
     auto query = executeSqlQuery(queryString);
 
@@ -514,8 +551,6 @@ std::vector<HeatProfile> Database::getHeatProfiles()
 
     std::vector<HeatProfile> profiles;
     QString queryString = R"(select * from HeatingProfile)";
-
-    qDebug() << "query: "<<queryString;
 
     auto query = executeSqlQuery(queryString);
 
@@ -594,7 +629,6 @@ QString Database::getHeatProfileName(int profileId)
 
     QString queryString = R"(select HeatingProfileName from HeatingProfile where HeatingProfileId=)";
     queryString.append(QString::number(profileId));
-    qDebug() << "query: "<<queryString;
 
     auto query = executeSqlQuery(queryString);
     query.next();
@@ -635,8 +669,6 @@ void Database::setHeatMasterOn(bool value)
     queryString.append(QString::number(intValue));
     queryString.append(R"( WHERE HeatingSystemId = 1)");
 
-    qDebug() << "query: "<< queryString;
-
     executeSqlQuery(queryString);
 }
 
@@ -650,8 +682,6 @@ void Database::setHeatZoneTemperature(int temperature, int zoneId, int profileId
     queryString.append(QString::number(zoneId));
     queryString.append(R"( AND HeatingProfileId = )");
     queryString.append(QString::number(profileId));
-
-    qDebug() << "query: "<< queryString;
 
     executeSqlQuery(queryString);
 }
@@ -672,8 +702,6 @@ void Database::setHeatZoneIsOn(bool value, int zoneId, int profileId)
     queryString.append(QString::number(zoneId));
     queryString.append(R"( AND HeatingProfileId = )");
     queryString.append(QString::number(profileId));
-
-    qDebug() << "query: "<< queryString;
 
     executeSqlQuery(queryString);
 }

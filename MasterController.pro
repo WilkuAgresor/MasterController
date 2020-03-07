@@ -1,5 +1,7 @@
 QT += quick
 QT += sql
+QT += serialport
+
 CONFIG += c++14
 
 # The following define makes your compiler emit warnings if you use
@@ -19,6 +21,10 @@ SOURCES += \
     ../common/subsystems/lights/LightControllerSettings.cpp \
     ../common/subsystems/lights/LightsRetrieveMessage.cpp \
     ../common/subsystems/topology/topologyMessages.cpp \
+    hardware/GrandCentral.cpp \
+    hardware/Pin.cpp \
+    hardware/PinMapping.cpp \
+    hardware/SerialConnection.cpp \
         main.cpp \
     database/database.cpp \
     mainapplication.cpp \
@@ -71,6 +77,11 @@ HEADERS += \
     connection/connectionmonitor.hpp \
     database/database.hpp \
     database/devicedb.hpp \
+    hardware/GrandCentral.hpp \
+    hardware/Pin.hpp \
+    hardware/PinIdentifier.hpp \
+    hardware/PinMapping.hpp \
+    hardware/SerialConnection.hpp \
     mainapplication.hpp \
     ../common/simplecrypt/simplecrypt.hpp \
     ../common/json/deviceJson.hpp \
