@@ -1,3 +1,5 @@
+#pragma once
+
 #include <QObject>
 #include <QUdpSocket>
 #include <QNetworkDatagram>
@@ -10,10 +12,13 @@
 #include <terminalListener/terminalListener.hpp>
 #include <subsystems/heating/HeatingApp.hpp>
 #include <subsystems/topology/TopologyApp.hpp>
+#include <subsystems/lights/LightsApp.hpp>
 
 #include <../common/simplecrypt/simplecrypt.hpp>
 #include <../common/messages/message_old.hpp>
 #include <../common/receiver/receiver.hpp>
+
+#include <serialListener/SerialConnection.hpp>
 
 enum class ConnectionState
 {
@@ -46,5 +51,6 @@ private:
     HeatingApp * mHeatingApp;
     TopologyApp* mTopologyApp;
     TerminalListener* mTerminalListener;
+    LightsApp* mLightsApp;
 };
 

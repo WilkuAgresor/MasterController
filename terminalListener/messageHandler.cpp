@@ -8,8 +8,8 @@
 
 std::mutex MessageHandler::mMutex;
 
-MessageHandler::MessageHandler(QNetworkDatagram datagram, Components *components)
-    : mDatagram(datagram), mComponents(components)
+MessageHandler::MessageHandler(QObject *parent, QNetworkDatagram datagram, Components *components)
+    : QObject(parent), mDatagram(datagram), mComponents(components)
 {
 
 }
@@ -19,7 +19,7 @@ void MessageHandler::run()
     std::lock_guard<std::mutex> _lock(mMutex);
 
     Message msg(mDatagram.data());
-    auto database = DatabaseFactory::createDatabaseConnection("messageHandler");
+//    auto database = DatabaseFactory::createDatabaseConnection("messageHandler");
 
     qDebug() << "Incoming message: "<< msg.toString();
 

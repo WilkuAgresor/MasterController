@@ -12,10 +12,16 @@
 static const QtMessageHandler QT_DEFAULT_MESSAGE_HANDLER = qInstallMessageHandler(0);
 
 void myMessageOutput(QtMsgType type, const QMessageLogContext &context, const QString &msg)
+try
 {
-    QString finalLogMessage = QDateTime::currentDateTime().toString(Qt::ISODateWithMs)+ " | " + msg;
+    QString message = msg;
+    QString finalLogMessage = QDateTime::currentDateTime().toString(Qt::ISODateWithMs)+ " | " + message;
 
     (*QT_DEFAULT_MESSAGE_HANDLER)(type, context, finalLogMessage);
+}
+catch(const std::exception&)
+{
+    //nothing to do. it's just a debug log
 }
 
 int main(int argc, char *argv[])

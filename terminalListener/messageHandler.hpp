@@ -12,7 +12,7 @@ class MessageHandler : public QObject, public QRunnable
 {
     Q_OBJECT
 public:
-    MessageHandler(QNetworkDatagram datagram, Components* components);
+    MessageHandler(QObject* parent, QNetworkDatagram datagram, Components* components);
     ~MessageHandler() = default;
 signals:
     void result(QNetworkDatagram datagram);

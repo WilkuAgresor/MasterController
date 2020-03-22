@@ -34,7 +34,7 @@ Database::~Database()
 
 QSqlQuery Database::executeSqlQuery(const QString &query)
 {
-    qDebug() << "DB query: "<< query;
+    //qDebug() << "DB query: "<< query;
 
     if(mModuleName.isEmpty())
     {
@@ -426,6 +426,27 @@ std::vector<LightControllerSettings> Database::getLightSettings()
     return lightControllers;
 }
 
+std::map<int,int> Database::getLightsGroupingMap()
+{
+    QString queryString = "SELECT LightsControl.LightsControlId, LightsControl.HardwareGrouping from LightsControl";
+    auto query = executeSqlQuery(queryString);
+
+
+    std::map<int,int> lightHardwareMapping;
+
+    int idLightId = query.record().indexOf("LightsControlId");
+    int idGroupingId = query.record().indexOf("HardwareGrouping");
+
+    while(query.next())
+    {
+        int lightId = query.value(idLightId).toInt();
+        int groupingId = query.value(idGroupingId).toInt();
+
+        lightHardwareMapping.emplace(lightId, groupingId);
+    }
+    return lightHardwareMapping;
+}
+
 void Database::setLightsIsOn(int lightId, bool isOn)
 {
     std::lock_guard<std::recursive_mutex> _lock(mMutex);
@@ -460,9 +481,9 @@ void Database::setLightsColor(int lightId, const QString &color)
 {
     std::lock_guard<std::recursive_mutex> _lock(mMutex);
 
-    QString queryString = "UPDATE LightsControl SET LightsControlDimm = ";
+    QString queryString = R"(UPDATE LightsControl SET LightsControlRGB = ")";
     queryString.append(color);
-    queryString.append(R"( WHERE LightsControlId = )");
+    queryString.append(R"(" WHERE LightsControlId = )");
     queryString.append(QString::number(lightId));
 
     executeSqlQuery(queryString);
@@ -507,6 +528,132 @@ PinMapping Database::getLightPinMapping(int lightId)
     mapping.setNofityPress(press>0);
 
     return mapping;
+}
+
+int Database::getLightGroupingId(int lightId)
+{
+    QString queryString = R"(SELECT GrandCentralGroupings.GroupingId
+                          FROM GrandCentralGroupings
+                          LEFT JOIN LightsControl
+                          ON LightsControl.HardwareGrouping = GrandCentralGroupings.GroupingId
+                          WHERE LightsControl.LightsControlId = )";
+    queryString.append(QString::number(lightId));
+
+    auto query = executeSqlQuery(queryString);
+    int idId = query.record().indexOf("GroupingId");
+
+    query.next();
+
+    return query.value(idId).toInt(0);
+}
+
+int Database::getLightIdFromPinId(const PinIdentifier &id)
+{
+    QString queryString = R"(SELECT LightsControl.LightsControlId
+                          FROM LightsControl
+                          LEFT JOIN GrandCentralGroupings
+                          ON LightsControl.HardwareGrouping = GrandCentralGroupings.GroupingId
+                          WHERE GrandCentralGroupings.GroupingInputPins LIKE )";
+    queryString.append(id.toStringDatabase());
+
+    auto query = executeSqlQuery(queryString);
+    int idId = query.record().indexOf("LightsControlId");
+
+    query.next();
+
+    return query.value(idId).toInt(0);
+}
+
+std::vector<PinMapping> Database::getGrandCentralPinGroupings()
+{
+    QString queryString = R"(Select * from GrandCentralGroupings)";
+
+    auto query= executeSqlQuery(queryString);
+
+    int idId = query.record().indexOf("GroupingId");
+    int idInput = query.record().indexOf("GroupingInputPins");
+    int idOutput = query.record().indexOf("GroupingOutputPins");
+    int idClick = query.record().indexOf("NotifyClick");
+    int idDClick = query.record().indexOf("NotifyDoubleClick");
+    int idPress = query.record().indexOf("NotifyPress");
+
+    std::vector<PinMapping> groupings;
+
+    while(query.next())
+    {
+        auto id = query.value(idId).toInt();
+        auto input = query.value(idInput).toString();
+        auto output = query.value(idOutput).toString();
+        auto clickInt = query.value(idClick).toInt();
+        auto dClickInt = query.value(idDClick).toInt();
+        auto press = query.value(idPress).toInt();
+
+        PinMapping mapping(id);
+        mapping.setInputPins(input);
+        mapping.setOutputPins(output);
+        mapping.setNotifyClick(clickInt>0);
+        mapping.setNotifyDoubleClick(dClickInt>0);
+        mapping.setNofityPress(press>0);
+
+        groupings.push_back(mapping);
+    }
+
+    return groupings;
+}
+
+std::vector<std::pair<PinIdentifier, PinType>> Database::getGrandCentralPins()
+{
+    std::lock_guard<std::recursive_mutex> _lock(mMutex);
+
+    QString queryString = R"(select * from GrandCentralExpanders)";
+    auto query = executeSqlQuery(queryString);
+
+    int idId = query.record().indexOf("id");
+    int id0 = query.record().indexOf("pin0");
+    int id1 = query.record().indexOf("pin1");
+    int id2 = query.record().indexOf("pin2");
+    int id3 = query.record().indexOf("pin3");
+    int id4 = query.record().indexOf("pin4");
+    int id5 = query.record().indexOf("pin5");
+    int id6 = query.record().indexOf("pin6");
+    int id7 = query.record().indexOf("pin7");
+    int id8 = query.record().indexOf("pin8");
+    int id9 = query.record().indexOf("pin9");
+    int id10 = query.record().indexOf("pin10");
+    int id11 = query.record().indexOf("pin11");
+    int id12 = query.record().indexOf("pin12");
+    int id13 = query.record().indexOf("pin13");
+    int id14 = query.record().indexOf("pin14");
+    int id15 = query.record().indexOf("pin15");
+
+    std::vector<std::pair<PinIdentifier, PinType>> pins;
+
+    while(query.next())
+    {
+        int expanderId = query.value(idId).toInt();
+
+        qDebug() << "expanderId: "<<expanderId;
+        pins.push_back(std::make_pair(PinIdentifier(expanderId, 0), static_cast<PinType>(query.value(id0).toInt(0))));
+        pins.push_back(std::make_pair(PinIdentifier(expanderId, 1), static_cast<PinType>(query.value(id1).toInt(0))));
+        pins.push_back(std::make_pair(PinIdentifier(expanderId, 2), static_cast<PinType>(query.value(id2).toInt(0))));
+        pins.push_back(std::make_pair(PinIdentifier(expanderId, 3), static_cast<PinType>(query.value(id3).toInt(0))));
+        pins.push_back(std::make_pair(PinIdentifier(expanderId, 4), static_cast<PinType>(query.value(id4).toInt(0))));
+        pins.push_back(std::make_pair(PinIdentifier(expanderId, 5), static_cast<PinType>(query.value(id5).toInt(0))));
+        pins.push_back(std::make_pair(PinIdentifier(expanderId, 6), static_cast<PinType>(query.value(id6).toInt(0))));
+        pins.push_back(std::make_pair(PinIdentifier(expanderId, 7), static_cast<PinType>(query.value(id7).toInt(0))));
+        pins.push_back(std::make_pair(PinIdentifier(expanderId, 8), static_cast<PinType>(query.value(id8).toInt(0))));
+        pins.push_back(std::make_pair(PinIdentifier(expanderId, 9), static_cast<PinType>(query.value(id9).toInt(0))));
+        pins.push_back(std::make_pair(PinIdentifier(expanderId, 10), static_cast<PinType>(query.value(id10).toInt(0))));
+        pins.push_back(std::make_pair(PinIdentifier(expanderId, 11), static_cast<PinType>(query.value(id11).toInt(0))));
+        pins.push_back(std::make_pair(PinIdentifier(expanderId, 12), static_cast<PinType>(query.value(id12).toInt(0))));
+        pins.push_back(std::make_pair(PinIdentifier(expanderId, 13), static_cast<PinType>(query.value(id13).toInt(0))));
+        pins.push_back(std::make_pair(PinIdentifier(expanderId, 14), static_cast<PinType>(query.value(id14).toInt(0))));
+        pins.push_back(std::make_pair(PinIdentifier(expanderId, 15), static_cast<PinType>(query.value(id15).toInt(0))));
+    }
+
+    qDebug() << "pins size: "<<pins.size();
+
+    return pins;
 }
 
 HeatZoneSetting Database::getHeatZoneSettings(int profileId, const QString& zoneName)

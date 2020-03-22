@@ -23,8 +23,8 @@ SOURCES += \
     ../common/subsystems/topology/topologyMessages.cpp \
     hardware/GrandCentral.cpp \
     hardware/Pin.cpp \
+    hardware/PinIdentifier.cpp \
     hardware/PinMapping.cpp \
-    hardware/SerialConnection.cpp \
         main.cpp \
     database/database.cpp \
     mainapplication.cpp \
@@ -41,6 +41,7 @@ SOURCES += \
     ../common/subsystems/alarm/alarmSetMessage.cpp \
     ../common/json/jsonSerialization.cpp \
     ../common/messages/replyMessage.cpp \
+    serialListener/SerialConnection.cpp \
     subsystems/heating/HeatingpAppComponents.cpp \
     subsystems/lights/LightsApp.cpp \
     subsystems/lights/LightsAppComponents.cpp \
@@ -81,7 +82,6 @@ HEADERS += \
     hardware/Pin.hpp \
     hardware/PinIdentifier.hpp \
     hardware/PinMapping.hpp \
-    hardware/SerialConnection.hpp \
     mainapplication.hpp \
     ../common/simplecrypt/simplecrypt.hpp \
     ../common/json/deviceJson.hpp \
@@ -100,6 +100,7 @@ HEADERS += \
     ../common/messages/replyMessage.hpp \
     ../common/CommonDefinitions.hpp \
     components.hpp \
+    serialListener/SerialConnection.hpp \
     subsystems/heating/HeatingpAppComponents.hpp \
     subsystems/lights/LightsApp.hpp \
     subsystems/lights/LightsAppComponents.hpp \

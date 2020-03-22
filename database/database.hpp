@@ -13,7 +13,9 @@ struct ControllerInfo
     {
         RPI_3Bp = 0,
         ARD_LEO = 1,
-        TERMINALv1 = 2
+        TERMINALv1 = 2,
+        USB_SERIAL_START = 1000,
+        USB_SERIAL_GRAND_CENTRAL = 1001
     };
 
     enum Status : int
@@ -93,6 +95,13 @@ public:
     void setLightsColor(int lightId, const QString& color);
 
     PinMapping getLightPinMapping(int lightId);
+    int getLightGroupingId(int lightId);
+    std::map<int, int> getLightsGroupingMap();
+
+    int getLightIdFromPinId(const PinIdentifier& id);
+
+    std::vector<PinMapping> getGrandCentralPinGroupings();
+    std::vector<std::pair<PinIdentifier, PinType> > getGrandCentralPins();
 
 private:
     QSqlQuery executeSqlQuery(const QString& query);

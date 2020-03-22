@@ -5,6 +5,7 @@
 #include <../common/sender.hpp>
 #include <subsystems/heating/HeatingpAppComponents.hpp>
 #include <subsystems/lights/LightsAppComponents.hpp>
+#include <hardware/GrandCentral.hpp>
 
 class Components : public QObject
 {
@@ -15,6 +16,10 @@ public:
     Sender* mSender;
     std::vector<ControllerInfo> mControllers;
     std::unique_ptr<HeatingAppComponents> mHeatingComponents;
-    std::unique_ptr<LightsAppComponents> mLightsComponents;
+    LightsAppComponents* mLightsComponents;
+
+    GrandCentral* mGrandCentral;
+//    SerialConnection* mSerialConnection;
+
 
 };

@@ -3,32 +3,41 @@
 #include <hardware/PinIdentifier.hpp>
 #include <QDebug>
 
-enum class PinType : int
-{
-    UNDEFINED = 0,
-    INPUT,
-    OUTPUT
-};
+class SerialConnection;
 
-enum class OutputState : int
+class Pin : public QObject
 {
-    UNDEFINED = 0,
-    LOW,
-    HIGH
-};
-
-class Pin
-{
+    Q_OBJECT
 public:
-    Pin();
+    Pin(QObject* parent, SerialConnection* serialConnection, const PinIdentifier& pinId, PinType type = PinType::UNUSED);
+//    Pin (const Pin &pin);
 
-    PinType getPinType();
-    void setPinType(PinType type);
+    PinType getPinType() const;
+    OutputState getDefaultState() const;
+    void setLogicalOutputState(LogicState state);
+    PinIdentifier getPinId() const;
 
-    void setOutputState(OutputState state);
+    friend bool operator== (const Pin &c1, const Pin &c2)
+    {
+        return c1.getPinId() == c2.getPinId();
+    }
+    friend bool operator!= (const Pin &c1, const Pin &c2)
+    {
+        return c1.getPinId() != c2.getPinId();
+    }
+    bool operator <(const Pin& rhs) const
+    {
+        return getPinId() < rhs.getPinId();
+    }
 
-private:
-    PinType mType = PinType::UNDEFINED;
-    OutputState mOutputState = OutputState::UNDEFINED;
+signals:
+    void stateChange(PinIdentifier id, OutputState state);
+
+protected:
+    SerialConnection* mSerialConnection;
+    PinIdentifier mPinId;
+    PinType mType = PinType::UNUSED;
+    LogicState mLogicalOutputState = LogicState::UNDEFINED;
+    OutputState mDefaultState = OutputState::UNDEFINED;
     int mMappingId;
 };

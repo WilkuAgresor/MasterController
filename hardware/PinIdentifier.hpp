@@ -8,14 +8,67 @@ enum class InputOperation: int
     PRESS
 };
 
+enum class OutputState : int
+{
+    UNDEFINED = 0,
+    LOW,
+    HIGH
+};
+
+enum class LogicState : int
+{
+    UNDEFINED = 0,
+    OFF,
+    ON
+};
+
+bool outputStateToBool(OutputState state);
+OutputState boolToOutputState(bool state);
+
+bool logicStateToBool(LogicState state);
+LogicState boolToLogicState(bool state);
+
+enum class PinType : int
+{
+    UNUSED = 0,
+    INPUT_PULLUP,
+    INPUT_NO_PULLUP,
+    OUTPUT_HIGH,
+    OUTPUT_LOW
+};
+
 struct PinIdentifier
 {
+    PinIdentifier() {};
+    PinIdentifier(int expander, int pin)
+        :mExpanderId(expander), mPinId(pin)
+    {
+    }
+
     int mExpanderId;
     int mPinId;
 
-    void print()
+    QString print() const
     {
-        qDebug() << "expander: "<<mExpanderId<<" pin: "<<mPinId;
+        return  "expander: "+QString::number(mExpanderId)+" pin: "+QString::number(mPinId);
+    }
+
+    QString toStringDatabase() const
+    {
+        QString str = R"('%)";
+        str.append(QString::number(mExpanderId));
+        str.append(',');
+        str.append(QString::number(mPinId));
+        str.append(R"(%')");
+        return str;
+    }
+
+    QString toStringSerial() const
+    {
+        QString str = QString::number(mExpanderId);
+        str.append(",");
+        str.append(QString::number(mPinId));
+        return str;
     }
 
     friend bool operator== (const PinIdentifier &c1, const PinIdentifier &c2)

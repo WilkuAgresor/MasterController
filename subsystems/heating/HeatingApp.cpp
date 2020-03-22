@@ -15,11 +15,11 @@ void HeatingApp::run()
     while(true)
     {
         std::this_thread::sleep_for(std::chrono::seconds(10));
-        auto payload = mComponents.getCurrentHeatStatus();
-        HeatSettingsMessage message(payload);
-        QHostAddress address(QHostAddress::LocalHost);
+//        auto payload = mComponents.getCurrentHeatStatus();
+//        HeatSettingsMessage message(payload);
+//        QHostAddress address(QHostAddress::LocalHost);
 
-        mComponents.mSystemComponents->mSender->send(address,TERMINAL_LISTEN_PORT, message.toData());
+//        mComponents.mSystemComponents->mSender->send(address,TERMINAL_LISTEN_PORT, message.toData());
     }
 }
 

@@ -14,7 +14,7 @@ void TerminalListener::handleMessage(QNetworkDatagram msg)
 
     try
     {
-        auto messageHandler = new MessageHandler(msg, mComponents);
+        auto messageHandler = new MessageHandler(this, msg, mComponents);
         messageHandler->setAutoDelete(true);
         connect(messageHandler, SIGNAL(result(QNetworkDatagram)), this, SLOT(sendResponse(QNetworkDatagram)),Qt::QueuedConnection);
         QThreadPool::globalInstance()->start(messageHandler);

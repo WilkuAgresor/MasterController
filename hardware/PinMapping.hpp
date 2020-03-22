@@ -40,6 +40,8 @@ public:
     void setNotifyDoubleClick(bool notifyDoubleClick);
     void setNofityPress(bool notifyPress);
 
+    bool containsOutputPin(const PinIdentifier& pinId);
+
 private:
 
     std::vector<PinIdentifier> splitDbEntryToPinIds(const QString& entry);

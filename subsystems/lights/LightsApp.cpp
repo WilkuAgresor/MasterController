@@ -5,8 +5,8 @@
 #include <thread>
 #include <chrono>
 
-LightsApp::LightsApp(QObject *parent, Components *components)
-    : QObject (parent), mComponents(components)
+LightsApp::LightsApp(QObject *parent, Components */*components*/)
+    : QObject (parent)
 {
 }
 

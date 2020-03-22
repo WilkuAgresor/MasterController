@@ -1,3 +1,5 @@
+#pragma once
+
 #include <QString>
 #include <QObject>
 #include <QRunnable>
@@ -11,6 +13,4 @@ public:
     ~LightsApp() = default;
 
     void run();
-
-    LightsAppComponents mComponents;
 };
