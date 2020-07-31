@@ -7,7 +7,7 @@ Pin::Pin(QObject* parent, SerialConnection *serialConnection, const PinIdentifie
       mPinId(pinId),
       mType(type)
 {
-    QObject::connect(this, SIGNAL(stateChange(PinIdentifier, OutputState)), mSerialConnection, SLOT(setOutputState(PinIdentifier, OutputState)));
+    QObject::connect(this, SIGNAL(stateChange(PinIdentifier, LogicState)), mSerialConnection, SLOT(setInputState(PinIdentifier, LogicState)));
 
     if(type == PinType::OUTPUT_LOW || type == PinType::INPUT_NO_PULLUP)
     {
@@ -40,19 +40,11 @@ OutputState Pin::getDefaultState() const
     return mDefaultState;
 }
 
-void Pin::setLogicalOutputState(LogicState state)
+void Pin::setLogicInputState(LogicState state)
 {
     mLogicalOutputState = state;
 
-    if((state==LogicState::ON && mDefaultState==OutputState::LOW) || (state == LogicState::OFF && mDefaultState==OutputState::HIGH))
-    {
-//        mSerialConnection.setOutputState(mPinId, OutputState::HIGH);
-        emit(stateChange(mPinId, OutputState::HIGH));
-    }
-    else
-    {
-        emit(stateChange(mPinId, OutputState::LOW));
-    }
+    emit(stateChange(mPinId, state));
 }
 
 PinIdentifier Pin::getPinId() const

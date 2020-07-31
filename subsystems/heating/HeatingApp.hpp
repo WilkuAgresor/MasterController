@@ -16,5 +16,5 @@ public:
 
     void run();
 
-    HeatingAppComponents mComponents;
+    Components* mComponents;
 };

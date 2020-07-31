@@ -19,6 +19,8 @@ public:
     void handleIncomingCommand(QString command);
 
     void setInputMapping(int expanderId, std::uint16_t mapping);
+    void setGroupId(const PinIdentifier &input, std::uint16_t groupId);
+
     void setOutputMapping(int expanderId, std::uint16_t mapping);
 
     void addInputMapping(const PinIdentifier& input, const PinIdentifier& output);
@@ -37,11 +39,13 @@ public:
     void flashRestore();
     void flashErase();
 
+    void reprovisionAllOutputStates();
+
     bool connect();
 public slots:
     void handleReadyRead();
     void handleError(QSerialPort::SerialPortError serialPortError);
-    void setOutputState(const PinIdentifier& input, OutputState state);
+    void setInputState(const PinIdentifier& input, LogicState state);
 
 private:
     std::mutex mMutex;

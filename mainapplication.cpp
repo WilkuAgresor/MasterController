@@ -5,6 +5,7 @@
 
 #include <chrono>
 #include <thread>
+#include <QDebug>
 
 MainApplication::MainApplication(QObject *parent) : QObject(parent)
   , mKeyKeeper(this)

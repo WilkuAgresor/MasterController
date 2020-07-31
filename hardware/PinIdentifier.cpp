@@ -25,5 +25,9 @@ bool logicStateToBool(LogicState state)
 
 LogicState boolToLogicState(bool state)
 {
-    return state ? LogicState::ON : LogicState::OFF;
+    if(state == true)
+    {
+        return  LogicState::ON;
+    }
+    return LogicState::OFF;
 }

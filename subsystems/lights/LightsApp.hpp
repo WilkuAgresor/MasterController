@@ -13,4 +13,6 @@ public:
     ~LightsApp() = default;
 
     void run();
+
+    Components* mComponents;
 };

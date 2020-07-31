@@ -31,10 +31,11 @@ LogicState boolToLogicState(bool state);
 enum class PinType : int
 {
     UNUSED = 0,
-    INPUT_PULLUP,
-    INPUT_NO_PULLUP,
-    OUTPUT_HIGH,
-    OUTPUT_LOW
+    INPUT_PULLUP = 1,
+    INPUT_NO_PULLUP = 2,
+    OUTPUT_HIGH = 3,
+    OUTPUT_LOW = 4,
+    VIRTUAL_INPUT = 5
 };
 
 struct PinIdentifier

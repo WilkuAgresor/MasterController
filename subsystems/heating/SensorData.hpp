@@ -3,15 +3,78 @@
 #include <QString>
 #include <mutex>
 #include <map>
+#include <../common/subsystems/heating/HeatingDictionary.hpp>
+#include <QDebug>
 
-struct TemperatureSensorEntry
+const QString TEMPERATURE_SENSOR_PATH = "/mnt/1wire/";
+const QString TEMPERATURE_SENSOR_PRECISION = "/temperature11";
+const QString HEATING_HW_DB_CONNECTION = "HeatingHw";
+
+struct TemperatureSensor
 {
-    TemperatureSensorEntry(const QString& ids, quint16 values = 0):
-        id(ids), value(values)
-    {}
+    TemperatureSensor(quint16 id, const QString& serialNumber, TemperatureSensorType type):
+        mId(id), mSerialNumber(serialNumber), mType(type)
+    {
+        qDebug() <<" sensor type: "<< QString::number(static_cast<int>(mType));
 
-    QString id;
-    quint16 value;
+    }
+
+    void refreshTemperatureReading();
+
+    quint16 mId;
+    QString mSerialNumber;
+    qint16 mCurrentTemperature = TEMPERATURE_INVALID;
+    TemperatureSensorType mType;
+    quint8 mRetryCounter = 0;
+
+private:
+    QString getSensorPath();
+};
+
+struct HeatingZone
+{
+    HeatingZone(quint16 zoneId);
+
+    void addTemperatureSensor(quint16 sensorId, const QString& serialNumber, TemperatureSensorType type);
+
+    int16_t getCurrentTemperature();
+    void refreshTemperatureReading();
+
+    quint16 mId;
+    bool mIsOn = false;
+    quint16 mSubsystemId;
+
+    std::vector<TemperatureSensor> mSensors;
+};
+
+struct HeatingSubsystem
+{
+    quint16 mId;
+    bool mIsOn = false;
+};
+
+struct HeatingHardware
+{
+    HeatingHardware();
+
+    void setMasterOn(bool isOn);
+    bool getMasterOn();
+
+    void addHeatingZone(quint16 id, quint16 subsystemId);
+    void addTemperatureSensor(quint16 id, quint16 zoneId, const QString& serialNumber, TemperatureSensorType type);
+
+    void setZoneIsOn(quint16 zoneId, bool isOn);
+    void setSubsystemIsOn(quint16 subsystemId, bool isOn);
+
+    qint16 getZoneCurrentTemperature(quint16 zoneId);
+    bool getZoneIsOn(quint16 zoneId);
+    bool getSubsystemIsOn(quint16 subsystemId);
+
+    void refreshTemperatureReading();
+
+    std::vector<HeatingSubsystem> mHeatingSubsystems;
+    std::vector<HeatingZone> mHeatingZones;
+    bool masterOn = false;
 };
 
 class TemperatureSensorDataBank
@@ -21,35 +84,19 @@ public:
 
     void pollSensors();
 
-    std::vector<TemperatureSensorEntry> getSensorData()
-    {
-        std::lock_guard<std::mutex> _lock(mMutex);
-        return mSensorData;
-    }
-
 private:
     quint16 getCurrentTemperature(const QString &hwId);
-
-
     std::mutex mMutex;
-    std::vector<TemperatureSensorEntry> mSensorData;
-
-    const std::map<QString, QString> mIdMapping {
-        { "salon", "id1" },
-        { "wiatrolap", "id2" },
-        { "gabinet", "id3" },
-        { "lazienka1", "id4" },
-        { "lazienka2", "id5" },
-        { "lazienka3", "id6" },
-        { "sypialnia1", "id7" },
-        { "sypialnia2", "id8" },
-        { "sypialnia3", "id9" },
-        { "sypialnia4", "id10" },
-        { "garderoba1", "id11" },
-        { "garderoba2", "id12" }
-    };
-
 };
+
+
+/*
+ * CREATE TABLE "28.0D41070A0001" (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    timestamp TEXT,
+    value INTEGER
+);
+ */
 
 
 

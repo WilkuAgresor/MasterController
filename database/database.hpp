@@ -6,6 +6,7 @@
 #include <../common/subsystems/heating/HeatingZoneSettings.hpp>
 #include <../common/subsystems/lights/LightControllerSettings.hpp>
 #include <hardware/PinMapping.hpp>
+#include <subsystems/heating/SensorData.hpp>
 
 struct ControllerInfo
 {
@@ -68,12 +69,13 @@ public:
     DeviceInfo getDeviceInfoHw(const QString& hardwareId);
 
     std::vector<HeatZoneSetting> getHeatZoneSettings(int profileId);
-    HeatZoneSetting getHeatZoneSettings(const QString &profileName, const QString &zoneName);
-    HeatZoneSetting getHeatZoneSettings(int profileId, const QString &zoneName);
+    HeatZoneSetting getHeatZoneSettings(const QString &profileName, int zoneId);
+    HeatZoneSetting getHeatZoneSettings(int profileId, int zoneId);
 
-    std::vector<QString> getHeatingZoneNames();
+    std::vector<int> getHeatingZoneIds();
 
     int getHeatZoneId(const QString& zoneName);
+    QString getHeatZoneName(int zoneId);
     int getHeatProfileId(const QString& profileName);
 
     QString getHeatProfileName(int profileId);
@@ -86,6 +88,9 @@ public:
     void setHeatZoneIsOn(bool value, int zoneId, int profileId);
     HeatZoneGuiSettings getHeatZoneGuiSettings(const QString &zoneName);
     HeatZoneGuiSettings getHeatZoneGuiSettings(int zoneId);
+
+    std::vector<HeatingZone> getHeatingZonesHardware(quint16 systemId = 1);
+    std::vector<TemperatureSensor> getTemperatureSensorsHardware(quint16 zoneId);
 
     LightControllerSettings getLightSetting(int id);
     std::vector<LightControllerSettings> getLightSettings();
@@ -102,6 +107,7 @@ public:
 
     std::vector<PinMapping> getGrandCentralPinGroupings();
     std::vector<std::pair<PinIdentifier, PinType> > getGrandCentralPins();
+
 
 private:
     QSqlQuery executeSqlQuery(const QString& query);

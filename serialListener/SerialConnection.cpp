@@ -20,7 +20,10 @@ SerialConnection::SerialConnection(Components *components)
         }
     }
 
-    connect();
+    if(!connect())
+    {
+
+    }
 }
 
 bool SerialConnection::connect()
@@ -54,6 +57,12 @@ bool SerialConnection::connect()
 bool SerialConnection::sendCommand(const QString &command)
 {
     std::lock_guard<std::mutex> _lock(mMutex);
+
+    if(!mPort->isWritable())
+    {
+        qDebug() << "Serial port is not writable";
+        return false;
+    }
 
     const QByteArray requestData = command.toUtf8();
     mPort->write(requestData);
@@ -111,6 +120,7 @@ try
     }
     else if(commandType == "stateChange")
     {
+        qDebug() << "state change";
         PinIdentifier pinId;
         pinId.mExpanderId = args.at(1).toInt();
         pinId.mPinId = args.at(2).toInt();
@@ -149,6 +159,22 @@ void SerialConnection::setOutputMapping(int expanderId, std::uint16_t mapping)
     command.append(",");
     command.append(QString::number(mapping));
     command.append(">");
+
+    sendCommand(command);
+}
+
+void SerialConnection::setGroupId(const PinIdentifier &input, std::uint16_t groupId)
+{
+    QString command;
+    command.append("<");
+    command.append("setGroupId");
+    command.append(",");
+    command.append(input.toStringSerial());
+    command.append(",");
+    command.append(QString::number(groupId));
+    command.append(">");
+
+    qDebug() << "command: "<<command;
 
     sendCommand(command);
 }
@@ -241,24 +267,24 @@ void SerialConnection::terminateAll()
     sendCommand("<termAll>");
 }
 
-void SerialConnection::setOutputState(const PinIdentifier &input, OutputState state)
+void SerialConnection::setInputState(const PinIdentifier &input, LogicState state)
 {
-    qDebug() << "set ouptut state slot";
+    qDebug() << "set admin state: "<< input.print();
 
     QString command;
     command.append("<");
+    command.append("adminChange,");
+    command.append(input.toStringSerial());
+    command.append(",");
 
-    if(state == OutputState::HIGH)
+    if(state == LogicState::ON)
     {
-        command.append("setHigh");
+        command.append("1>");
     }
     else
     {
-        command.append("setLow");
+        command.append("0>");
     }
-    command.append(",");
-    command.append(input.toStringSerial());
-    command.append(">");
 
     sendCommand(command);
 }
@@ -299,6 +325,11 @@ void SerialConnection::flashErase()
     sendCommand("<flashErase>");
 }
 
+void SerialConnection::reprovisionAllOutputStates()
+{
+    sendCommand("<reprov>");
+}
+
 void SerialConnection::handleReadyRead()
 {
     qDebug() << "ready read";
@@ -332,7 +363,7 @@ void SerialConnection::handleError(QSerialPort::SerialPortError serialPortError)
 
     while(!connect())
     {
-        std::this_thread::sleep_for(std::chrono::seconds(1));
+        std::this_thread::sleep_for(std::chrono::seconds(5));
     }
 }
 

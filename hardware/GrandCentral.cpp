@@ -10,6 +10,7 @@ GrandCentral::GrandCentral(QObject *parent, Components *components)
 {
     qRegisterMetaType<PinIdentifier>("PinIdentifier");
     qRegisterMetaType<OutputState>("OutputState");
+    qRegisterMetaType<LogicState>("LogicState");
 
 
     //initialize pins
@@ -31,7 +32,7 @@ void GrandCentral::addOrUpdatePinMapping(const PinMapping &mapping)
     mMappings.push_back(mapping);
 }
 
-void GrandCentral::setOutputState(int mappingId, LogicState state)
+void GrandCentral::setInputState(int mappingId, LogicState state)
 {
     qDebug() << "state change to "<<static_cast<int>(state);
 
@@ -39,17 +40,18 @@ void GrandCentral::setOutputState(int mappingId, LogicState state)
     {
         if(mapping.getId() == mappingId)
         {
-            for(auto& pinId: mapping.getOutputPins())
+            for(auto& pinId: mapping.getInputPins())
             {
-                for(auto& pin: mPins)
+                for(auto& physicalPin: mPins)
                 {
-                    if(pin->getPinId() == pinId)
+                    if(physicalPin->getPinId() == pinId && physicalPin->getPinType() == PinType::VIRTUAL_INPUT)
                     {
-                        pin->setLogicalOutputState(state);
+                        physicalPin->setLogicInputState(state);
                         break;
                     }
                 }
             }
+
             break;
         }
     }
@@ -57,7 +59,7 @@ void GrandCentral::setOutputState(int mappingId, LogicState state)
 
 void GrandCentral::stateChangeNotif(PinIdentifier id, bool state)
 {
-    emit(outputPinStateChangeNotif(id,state));
+    emit(inputPinStateChangeNotif(id,state));
 }
 
 int GrandCentral::getPinsGroupingId(const PinIdentifier &pin)
@@ -65,6 +67,18 @@ int GrandCentral::getPinsGroupingId(const PinIdentifier &pin)
     for(auto& grouping: mMappings)
     {
         if(grouping.containsOutputPin(pin))
+        {
+            return grouping.getId();
+        }
+    }
+    return -1;
+}
+
+int GrandCentral::getInputPinsGroupingId(const PinIdentifier &pin)
+{
+    for(auto& grouping: mMappings)
+    {
+        if(grouping.containsInputPin(pin))
         {
             return grouping.getId();
         }
@@ -84,18 +98,23 @@ OutputState GrandCentral::getPinDefaultOutputState(const PinIdentifier &pin)
     return OutputState::UNDEFINED;
 }
 
+void GrandCentral::reprovisionOutputValues()
+{
+    mSerialConnection->reprovisionAllOutputStates();
+}
+
 void GrandCentral::resetGrandCentralSettings()
 {
 }
 
 void GrandCentral::setInOutMappings()
 {
-    std::array<std::bitset<16>,16> inMappings;
+    std::array<std::bitset<16>,26> inMappings; //also for virtual mappings
     std::array<std::bitset<16>,16> outMappings;
 
     for(auto& pin: mPins)
     {
-        if(pin->getPinType() == PinType::INPUT_PULLUP || pin->getPinType() == PinType::INPUT_NO_PULLUP)
+        if(pin->getPinType() == PinType::INPUT_PULLUP || pin->getPinType() == PinType::INPUT_NO_PULLUP || pin->getPinType() == PinType::VIRTUAL_INPUT)
         {
             inMappings[pin->getPinId().mExpanderId][pin->getPinId().mPinId] = 1;
         }
@@ -110,14 +129,17 @@ void GrandCentral::setInOutMappings()
         }
     }
 
+    //set input mappings
     for(std::uint16_t i=0; i<inMappings.size(); i++)
     {
         std::uint16_t inMapInt = inMappings[i].to_ulong();
-        std::uint16_t outMapInt = outMappings[i].to_ulong();
-
-        qDebug() << "input mapping: "<<inMapInt<<", output mapping: "<< outMapInt;
-
         mSerialConnection->setInputMapping(i, inMapInt);
+    }
+
+    //set output mappings
+    for(std::uint16_t i=0; i<outMappings.size(); i++)
+    {
+        std::uint16_t outMapInt = outMappings[i].to_ulong();
         mSerialConnection->setOutputMapping(i, outMapInt);
     }
 
@@ -128,6 +150,7 @@ void GrandCentral::setInOutMappings()
             for(auto output: grouping.getOutputPins())
             {
                 mSerialConnection->addInputMapping(input, output);
+                mSerialConnection->setGroupId(input, grouping.getId());
             }
         }
     }

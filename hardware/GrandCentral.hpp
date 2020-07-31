@@ -16,14 +16,17 @@ public:
     void setPinType(PinIdentifier id, PinType type);
     void addOrUpdatePinMapping(const PinMapping& mapping);
 
-    void setOutputState(int mappingId, LogicState state);
+    void setInputState(int mappingId, LogicState state);
     void stateChangeNotif(PinIdentifier id, bool state);
 
     int getPinsGroupingId(const PinIdentifier& pin);
+    int getInputPinsGroupingId(const PinIdentifier &pin);
     OutputState getPinDefaultOutputState(const PinIdentifier& pin);
 
+    void reprovisionOutputValues();
+
 signals:
-    void outputPinStateChangeNotif(PinIdentifier id, bool state);
+    void inputPinStateChangeNotif(PinIdentifier id, bool state);
 
 private:
     void resetGrandCentralSettings();

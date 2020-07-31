@@ -16,7 +16,9 @@ DEFINES += QT_DEPRECATED_WARNINGS
 #DEFINES += QT_DISABLE_DEPRECATED_BEFORE=0x060000    # disables all the APIs deprecated before Qt 6.0.0
 
 SOURCES += \
+    ../common/messages/partedMessage.cpp \
     ../common/subsystems/heating/HeatingRetrieveMessage.cpp \
+    ../common/subsystems/heating/HeatingRetrieveStatistics.cpp \
     ../common/subsystems/heating/HeatingZoneSettings.cpp \
     ../common/subsystems/lights/LightControllerSettings.cpp \
     ../common/subsystems/lights/LightsRetrieveMessage.cpp \
@@ -43,6 +45,7 @@ SOURCES += \
     ../common/messages/replyMessage.cpp \
     serialListener/SerialConnection.cpp \
     subsystems/heating/HeatingpAppComponents.cpp \
+    subsystems/heating/SensorDatabase.cpp \
     subsystems/lights/LightsApp.cpp \
     subsystems/lights/LightsAppComponents.cpp \
     subsystems/topology/TopologyApp.cpp \
@@ -68,7 +71,9 @@ else: unix:!android: target.path = /opt/$${TARGET}/bin
 !isEmpty(target.path): INSTALLS += target
 
 HEADERS += \
+    ../common/messages/partedMessage.hpp \
     ../common/subsystems/heating/HeatingRetrieveMessage.hpp \
+    ../common/subsystems/heating/HeatingRetrieveStatistics.hpp \
     ../common/subsystems/heating/HeatingZoneSettings.hpp \
     ../common/subsystems/lights/LightControllerSettings.hpp \
     ../common/subsystems/lights/LightsDictionary.hpp \
@@ -102,6 +107,7 @@ HEADERS += \
     components.hpp \
     serialListener/SerialConnection.hpp \
     subsystems/heating/HeatingpAppComponents.hpp \
+    subsystems/heating/SensorDatabase.hpp \
     subsystems/lights/LightsApp.hpp \
     subsystems/lights/LightsAppComponents.hpp \
     subsystems/topology/TopologyApp.hpp \

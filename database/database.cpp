@@ -285,9 +285,9 @@ std::vector<HeatZoneSetting> Database::getHeatZoneSettings(int profileId)
     std::lock_guard<std::recursive_mutex> _lock(mMutex);
 
     std::vector<HeatZoneSetting> zones;
-    for(auto& zoneName: getHeatingZoneNames())
+    for(auto& zoneId: getHeatingZoneIds())
     {
-        zones.push_back(getHeatZoneSettings(profileId, zoneName));
+        zones.push_back(getHeatZoneSettings(profileId, zoneId));
     }
     return zones;
 }
@@ -306,8 +306,6 @@ HeatZoneGuiSettings Database::getHeatZoneGuiSettings(int zoneId)
 
     QString queryString = R"(select * from HeatingZoneGuiSetting where HeatingZoneId=)";
     queryString.append(QString::number(zoneId));
-
-    qDebug() << queryString;
 
     auto query = executeSqlQuery(queryString);
 
@@ -328,9 +326,57 @@ HeatZoneGuiSettings Database::getHeatZoneGuiSettings(int zoneId)
     guiSettings.mWidth = query.value(idWidth).toInt();
     guiSettings.mFontSize = query.value(idFontSize).toInt();
 
-    qDebug() << "heat zone gui settings: "<<guiSettings.toString();
-
     return guiSettings;
+}
+
+std::vector<HeatingZone> Database::getHeatingZonesHardware(quint16 systemId)
+{
+    std::lock_guard<std::recursive_mutex> _lock(mMutex);
+    std::vector<HeatingZone> zones;
+
+    QString queryString = R"(SELECT *
+                          FROM HeatingZone
+                          WHERE HeatingZone.HeatingSystemId = )";
+    queryString.append(QString::number(systemId));
+
+    auto query = executeSqlQuery(queryString);
+
+    int idId = query.record().indexOf("HeatingZoneId");
+
+
+    while(query.next())
+    {
+        zones.emplace_back(query.value(idId).toInt());
+    }
+    return zones;
+}
+
+std::vector<TemperatureSensor> Database::getTemperatureSensorsHardware(quint16 zoneId)
+{
+    std::lock_guard<std::recursive_mutex> _lock(mMutex);
+
+    std::vector<TemperatureSensor> sensors;
+
+    QString queryString = R"(SELECT *
+                          FROM TemperatureSensors
+                          WHERE TemperatureSensors.zoneId = )";
+    queryString.append(QString::number(zoneId));
+
+    auto query = executeSqlQuery(queryString);
+
+    int idId = query.record().indexOf("id");
+    int idSerial = query.record().indexOf("serial");
+    int idType = query.record().indexOf("type");
+
+    while(query.next())
+    {
+        sensors.emplace_back(
+                    TemperatureSensor(
+                        query.value(idId).toInt(),
+                        query.value(idSerial).toString(),
+                        static_cast<TemperatureSensorType>(query.value(idType).toInt())));
+    }
+    return sensors;
 }
 
 LightControllerSettings Database::getLightSetting(int id)
@@ -656,11 +702,9 @@ std::vector<std::pair<PinIdentifier, PinType>> Database::getGrandCentralPins()
     return pins;
 }
 
-HeatZoneSetting Database::getHeatZoneSettings(int profileId, const QString& zoneName)
+HeatZoneSetting Database::getHeatZoneSettings(int profileId, int zoneId)
 {
     std::lock_guard<std::recursive_mutex> _lock(mMutex);
-
-    auto zoneId = getHeatZoneId(zoneName);
 
     QString queryString = R"(select * from HeatingZoneSetting where HeatingZoneId=)";
     queryString.append(QString::number(zoneId));
@@ -673,11 +717,13 @@ HeatZoneSetting Database::getHeatZoneSettings(int profileId, const QString& zone
 
     int idTemp    = query.record().indexOf("HeatingZoneSettingTemp");
     int idIsOn      = query.record().indexOf("HeatingZoneSettingIsOn");
+    int idId      = query.record().indexOf("HeatingZoneId");
 
     query.next();
 
     auto temp = query.value(idTemp).toInt();
     auto isOnInt = query.value(idIsOn).toInt();
+    auto id = query.value(idId).toInt();
 
     bool isOn;
     if(isOnInt == 0)
@@ -689,7 +735,9 @@ HeatZoneSetting Database::getHeatZoneSettings(int profileId, const QString& zone
         isOn = true;
     }
     auto guiSettings = getHeatZoneGuiSettings(zoneId);
-    return HeatZoneSetting(temp,isOn,zoneName, guiSettings);
+    auto name = getHeatZoneName(zoneId);
+
+    return HeatZoneSetting(temp, isOn, name, id, guiSettings);
 }
 
 std::vector<HeatProfile> Database::getHeatProfiles()
@@ -715,31 +763,31 @@ std::vector<HeatProfile> Database::getHeatProfiles()
     return profiles;
 }
 
-std::vector<QString> Database::getHeatingZoneNames()
+std::vector<int> Database::getHeatingZoneIds()
 {
     std::lock_guard<std::recursive_mutex> _lock(mMutex);
 
-    std::vector<QString> names;
-    QString queryString = R"(select HeatingZoneName from HeatingZone)";
+    std::vector<int> ids;
+    QString queryString = R"(select HeatingZoneId from HeatingZone)";
 
     auto query = executeSqlQuery(queryString);
 
-    int idName = query.record().indexOf("HeatingZoneName");
+    int idId = query.record().indexOf("HeatingZoneId");
 
     while(query.next())
     {
-        names.emplace_back(query.value(idName).toString());
+        ids.emplace_back(query.value(idId).toInt());
     }
-    return names;
+    return ids;
 }
 
-HeatZoneSetting Database::getHeatZoneSettings(const QString& profileName, const QString& zoneName)
+HeatZoneSetting Database::getHeatZoneSettings(const QString& profileName, int zoneId)
 {
     std::lock_guard<std::recursive_mutex> _lock(mMutex);
 
     auto profileId = getHeatProfileId(profileName);
 
-    return getHeatZoneSettings(profileId, zoneName);
+    return getHeatZoneSettings(profileId, zoneId);
 }
 
 int Database::getHeatZoneId(const QString &zoneName)
@@ -752,8 +800,22 @@ int Database::getHeatZoneId(const QString &zoneName)
 
     QSqlQuery query(queryString, mDatabase);
     query.next();
-    int idZoneName = query.record().indexOf("HeatingZoneId");
-    return query.value(idZoneName).toInt();
+    int idId = query.record().indexOf("HeatingZoneId");
+    return query.value(idId).toInt();
+}
+
+QString Database::getHeatZoneName(int zoneId)
+{
+    std::lock_guard<std::recursive_mutex> _lock(mMutex);
+
+    QString queryString = R"(select HeatingZoneName from HeatingZone where HeatingZoneId=")";
+    queryString.append(QString::number(zoneId));
+    queryString.append(R"(")");
+
+    QSqlQuery query(queryString, mDatabase);
+    query.next();
+    int idName = query.record().indexOf("HeatingZoneName");
+    return query.value(idName).toString();
 }
 
 int Database::getHeatProfileId(const QString &profileName)

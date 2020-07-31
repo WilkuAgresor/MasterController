@@ -68,6 +68,11 @@ bool PinMapping::containsOutputPin(const PinIdentifier &pinId)
     return std::find(mOutputPins.begin(), mOutputPins.end(), pinId) != mOutputPins.end();
 }
 
+bool PinMapping::containsInputPin(const PinIdentifier &pinId)
+{
+    return std::find(mInputPins.begin(), mInputPins.end(), pinId) != mInputPins.end();
+}
+
 std::vector<PinIdentifier> PinMapping::splitDbEntryToPinIds(const QString &entry)
 {
     //single id -  x,y

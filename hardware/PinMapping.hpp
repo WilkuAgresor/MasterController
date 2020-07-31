@@ -41,6 +41,7 @@ public:
     void setNofityPress(bool notifyPress);
 
     bool containsOutputPin(const PinIdentifier& pinId);
+    bool containsInputPin(const PinIdentifier& pinId);
 
 private:
 

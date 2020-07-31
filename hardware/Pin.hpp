@@ -14,7 +14,7 @@ public:
 
     PinType getPinType() const;
     OutputState getDefaultState() const;
-    void setLogicalOutputState(LogicState state);
+    void setLogicInputState(LogicState state);
     PinIdentifier getPinId() const;
 
     friend bool operator== (const Pin &c1, const Pin &c2)
@@ -31,7 +31,7 @@ public:
     }
 
 signals:
-    void stateChange(PinIdentifier id, OutputState state);
+    void stateChange(PinIdentifier id, LogicState state);
 
 protected:
     SerialConnection* mSerialConnection;

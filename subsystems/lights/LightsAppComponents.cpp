@@ -12,7 +12,7 @@ LightsAppComponents::LightsAppComponents(QObject *parent, Components *components
     mLightToGroupingMap = database->getLightsGroupingMap();
     lock.unlock();
 
-    QObject::connect(mSystemComponents->mGrandCentral, SIGNAL(outputPinStateChangeNotif(PinIdentifier, bool)),
+    QObject::connect(mSystemComponents->mGrandCentral, SIGNAL(inputPinStateChangeNotif(PinIdentifier, bool)),
                      this, SLOT(handleStateChanged(PinIdentifier, bool)));
 }
 
@@ -30,7 +30,7 @@ void LightsAppComponents::reprovisionTerminalData(QHostAddress terminalAddr)
     settingsPayload.mLightControllers = lightSettings;
 
     LightSettingsMessage message(settingsPayload);
-    qDebug() <<"lights reprovision settings: " << settingsPayload.toString();
+//    qDebug() <<"lights reprovision settings: " << settingsPayload.toString();
 
     mSystemComponents->mSender->send(terminalAddr, TERMINAL_LISTEN_PORT, message.toData());
 }
@@ -56,24 +56,22 @@ void LightsAppComponents::handleMessage(const Message &message, QHostAddress fro
 
 void LightsAppComponents::handleStateChanged(PinIdentifier pinId, bool state)
 {
-    qDebug() << "output pin state change: "<< pinId.print()<<" state: "<<state;
+    qDebug() << "grouping state change: "<< pinId.print()<<" state: "<<state;
 
-    auto defaultState = mSystemComponents->mGrandCentral->getPinDefaultOutputState(pinId);
+    //the pinId is the input pin that has triggered the change
+    //deduce the grouping ID and forward this change to the terminals
 
-    qDebug() << "default pin state: "<<static_cast<int>(defaultState);
+    int pinGroupId = mSystemComponents->mGrandCentral->getInputPinsGroupingId(pinId);
 
-    auto currentState = boolToOutputState(state);
-
-    auto currentLogicState = (defaultState != currentState) ? LogicState::ON : LogicState::OFF;
-
-    qDebug() << "current logic state: "<< static_cast<int>(currentLogicState);
-
-    int pinGroupId = mSystemComponents->mGrandCentral->getPinsGroupingId(pinId);
     if(pinGroupId == -1)
     {
         qDebug() << "State change on pin: " <<pinId.print() <<" without grouping assignment. Ignoring...";
         return;
     }
+
+    auto currentLogicState = boolToLogicState(state);
+
+    std::unique_lock<std::mutex> lock(mDbMutex);
 
     for(const auto& pair: mLightToGroupingMap)
     {
@@ -81,8 +79,6 @@ void LightsAppComponents::handleStateChanged(PinIdentifier pinId, bool state)
         {
             qDebug() << "output pin of light id: "<<pair.first;
             LightControllerSettings dbSettings;
-
-            std::lock_guard<std::mutex> lock(mDbMutex);
 
             auto database = DatabaseFactory::createDatabaseConnection("lights");
             dbSettings = database->getLightSetting(pair.first);
@@ -93,48 +89,46 @@ void LightsAppComponents::handleStateChanged(PinIdentifier pinId, bool state)
             if(currentLogicState != dbLogicState)
             {
                 qDebug() << "STATE CHANGE!";
-                LightControllerSettings settings;
-                settings.mId = pair.first;
-
                 database->setLightsIsOn(pair.first, logicStateToBool(currentLogicState));
-
-                settings.setIsOn(logicStateToBool(currentLogicState));
-
-                LightSettingsPayload payload;
-                payload.mLightControllers.push_back(settings);
-                LightSettingsMessage message(payload);
-                QHostAddress address;
-
-                sendToTerminals(message, address);
             }
+
+            LightControllerSettings settings;
+            settings.mId = pair.first;
+            settings.setIsOn(state);
+
+            LightSettingsPayload payload;
+            payload.mLightControllers.push_back(settings);
+            LightSettingsMessage message(payload);
+            QHostAddress address;
+
+            sendToTerminals(message, address);
             break;
         }
     }
 }
 
-void LightsAppComponents::handleClicked(int lightId)
+void LightsAppComponents::handleClicked(int /*lightId*/)
 {
-    //handle click
-    LightControllerSettings settings, dbSettings;
-    settings.mId = lightId;
+//    //handle click. Save state in the database.
 
-    {
-        std::lock_guard<std::mutex> lock(mDbMutex);
-        auto database = DatabaseFactory::createDatabaseConnection("lights");
-        dbSettings = database->getLightSetting(lightId);
-        database->setLightsIsOn(lightId, !dbSettings.mIsOn);
-    }
+//    std::lock_guard<std::mutex> lock(mDbMutex);
 
-    qDebug() << "light settings: "<<dbSettings.toString();
+//    LightControllerSettings dbSettings;
 
-    settings.setIsOn(!dbSettings.mIsOn);
+//    auto database = DatabaseFactory::createDatabaseConnection("lights");
+//    dbSettings = database->getLightSetting(lightId);
+//    database->setLightsIsOn(lightId, !dbSettings.mIsOn);
 
-    LightSettingsPayload payload;
-    payload.mLightControllers.push_back(settings);
-    LightSettingsMessage message(payload);
-    QHostAddress address;
+//    qDebug() << "light settings: "<<dbSettings.toString();
 
-    sendToTerminals(message, address);
+//    settings.setIsOn(!dbSettings.mIsOn);
+
+//    LightSettingsPayload payload;
+//    payload.mLightControllers.push_back(settings);
+//    LightSettingsMessage message(payload);
+//    QHostAddress address;
+
+//    sendToTerminals(message, address);
 }
 
 void LightsAppComponents::sendToTerminals(const LightSettingsMessage &message, QHostAddress fromAddr)
@@ -166,13 +160,11 @@ void LightsAppComponents::handleLightsUpdateFromTerminal(const LightSettingsMess
     {
         auto dbSettings = database->getLightSetting(light.mId);
 
-        if(light.mIsOnChanged && (light.mIsOn != dbSettings.mIsOn))
+        if(light.mIsOnChanged)
         {
-            database->setLightsIsOn(light.mId, light.mIsOn);
+            LogicState state = boolToLogicState(light.mIsOn); /*light.mIsOn ? LogicState::ON : LogicState::OFF;*/
 
-            LogicState state = light.mIsOn ? LogicState::ON : LogicState::OFF;
-
-            mSystemComponents->mGrandCentral->setOutputState(database->getLightGroupingId(light.mId), state);
+            mSystemComponents->mGrandCentral->setInputState(database->getLightGroupingId(light.mId), state);
         }
 
         if(light.mDimmChanged && (light.mType == 1 || light.mType == 2) && light.mDimm != dbSettings.mDimm)
@@ -190,7 +182,7 @@ void LightsAppComponents::handleLightsUpdateFromTerminal(const LightSettingsMess
     database.reset();
 
     lock.unlock();
-    sendToTerminals(message, fromAddr);
+//    sendToTerminals(message, fromAddr);
 
     auto header = message.getHeader();
 
@@ -221,4 +213,6 @@ void LightsAppComponents::handleLightsRetrieve(const LightsRetrieveMessage &mess
 
     mSystemComponents->mSender->send(fromAddr, header.mReplyPort, respMessage.toData());
     qDebug() << "sent";
+
+    mSystemComponents->mGrandCentral->reprovisionOutputValues();
 }
