@@ -1,22 +1,21 @@
 #include "terminalListener.hpp"
 #include "messageHandler.hpp"
 
-TerminalListener::TerminalListener(Sender */*sender*/, Components* components, QObject *parent, quint16 port)
-    : Receiver(port, parent),
+TerminalListener::TerminalListener(Components* components, QObject *parent, quint16 port)
+    : Receiver(port, components->mNetworkPortRepository, parent),
       mComponents(components)
 {
 
 }
 
-void TerminalListener::handleMessage(QNetworkDatagram msg)
+void TerminalListener::handleMessage(Message msg, QHostAddress fromAddr)
 {
     std::lock_guard<std::mutex> _lock(mMutex);
 
     try
     {
-        auto messageHandler = new MessageHandler(this, msg, mComponents);
+        auto messageHandler = new MessageHandler(this, std::move(msg), fromAddr, mComponents);
         messageHandler->setAutoDelete(true);
-        connect(messageHandler, SIGNAL(result(QNetworkDatagram)), this, SLOT(sendResponse(QNetworkDatagram)),Qt::QueuedConnection);
         QThreadPool::globalInstance()->start(messageHandler);
     }
     catch (const std::exception& ex)

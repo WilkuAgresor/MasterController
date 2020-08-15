@@ -8,8 +8,8 @@
 
 std::mutex MessageHandler::mMutex;
 
-MessageHandler::MessageHandler(QObject *parent, QNetworkDatagram datagram, Components *components)
-    : QObject(parent), mDatagram(datagram), mComponents(components)
+MessageHandler::MessageHandler(QObject *parent, Message &&msg, QHostAddress fromAddr, Components *components)
+    : QObject(parent), mMsg(msg), mFromAddr(fromAddr), mComponents(components)
 {
 
 }
@@ -18,40 +18,30 @@ void MessageHandler::run()
 {
     std::lock_guard<std::mutex> _lock(mMutex);
 
-    Message msg(mDatagram.data());
-//    auto database = DatabaseFactory::createDatabaseConnection("messageHandler");
+    if(!mMsg.isValid())
+    {
+        qWarning() << "invalid message received";
+    }
 
-    qDebug() << "Incoming message: "<< msg.toString();
+    qDebug() << "Incoming message: "<< mMsg.toString();
 
-    auto header = msg.getHeader();
+    auto header = mMsg.getHeader();
 
     if(header.getType() == MessageType::ALARM_SET)
     {
-        auto& alarmMsg = static_cast<AlarmSetMessage&>(msg);
+        auto& alarmMsg = static_cast<AlarmSetMessage&>(mMsg);
         auto payload = alarmMsg.payload();
 
         qDebug() << "got alarm message: " <<payload.toString();
 
-//        using namespace std::chrono;
-//        for(int i = 0; i<5; i++)
-//        {
-//            std::this_thread::sleep_for(milliseconds(1000));
-//            qDebug() << "in sleep "<< i;
-//        }
-
-        ReplyPayload repPayload(Status::OK);
-        ReplyMessage repMsg(repPayload);
-
-        emit result(mDatagram.makeReply(repMsg.toData()));
     }
     else if(header.getType() == MessageType::TOPOLOGY_CHECKIN)
     {
-        auto addr = mDatagram.senderAddress();
         for(auto& controller: mComponents->mControllers)
         {
-            if(controller.ipAddr == addr.toString())
+            if(controller.ipAddr == mFromAddr.toString())
             {
-                qDebug() << "topology checkin from " <<addr.toString();
+                qDebug() << "topology checkin from " <<mFromAddr.toString();
                 controller.status = ControllerInfo::Status::ACTIVE;
             }
         }
@@ -59,15 +49,15 @@ void MessageHandler::run()
     else if(header.getType() == MessageType::TOPOLOGY_REQUEST_INIT)
     {
         qDebug() << "topology request init";
-        mComponents->mHeatingComponents->reprovisionTerminalData(mDatagram.senderAddress());
-        mComponents->mLightsComponents->reprovisionTerminalData(mDatagram.senderAddress());
+        mComponents->mHeatingComponents->reprovisionTerminalData(mFromAddr);
+        mComponents->mLightsComponents->reprovisionTerminalData(mFromAddr);
     }
     else if(isHeatingMessage(header.getType()))
     {
-        mComponents->mHeatingComponents->handleMessage(msg, mDatagram.senderAddress(), mDatagram.senderPort());
+        mComponents->mHeatingComponents->handleMessage(mMsg, mFromAddr);
     }
     else if(isLightsMessage(header.getType()))
     {
-        mComponents->mLightsComponents->handleMessage(msg, mDatagram.senderAddress(), mDatagram.senderPort());
+        mComponents->mLightsComponents->handleMessage(mMsg, mFromAddr);
     }
 }

@@ -35,14 +35,14 @@ void LightsAppComponents::reprovisionTerminalData(QHostAddress terminalAddr)
     mSystemComponents->mSender->send(terminalAddr, TERMINAL_LISTEN_PORT, message.toData());
 }
 
-void LightsAppComponents::handleMessage(const Message &message, QHostAddress fromAddr, int fromPort)
+void LightsAppComponents::handleMessage(const Message &message, QHostAddress fromAddr)
 {
     auto header = message.getHeader();
 
     switch(header.getType())
     {
     case MessageType::LIGHTS_UPDATE:
-        handleLightsUpdateFromTerminal(static_cast<const LightSettingsMessage&>(message), fromAddr, fromPort);
+        handleLightsUpdateFromTerminal(static_cast<const LightSettingsMessage&>(message), fromAddr);
         break;
 
 //    case MessageType::HEAT_SETTINGS_RETRIEVE:
@@ -147,7 +147,7 @@ void LightsAppComponents::sendToTerminals(const LightSettingsMessage &message, Q
     }
 }
 
-void LightsAppComponents::handleLightsUpdateFromTerminal(const LightSettingsMessage &message, QHostAddress fromAddr, int /*fromPort*/)
+void LightsAppComponents::handleLightsUpdateFromTerminal(const LightSettingsMessage &message, QHostAddress fromAddr)
 {
     qDebug() << "handle lights update";
     auto payload = message.payload();

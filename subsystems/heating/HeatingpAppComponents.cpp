@@ -93,14 +93,14 @@ void HeatingAppComponents::updateTerminalCurrentTemperatures(QHostAddress termin
     mSystemComponents->mSender->send(terminalAddr, TERMINAL_LISTEN_PORT, message.toData());
 }
 
-void HeatingAppComponents::handleMessage(const Message &message, QHostAddress fromAddr, int fromPort)
+void HeatingAppComponents::handleMessage(const Message &message, QHostAddress fromAddr)
 {
     auto header = message.getHeader();
 
     switch(header.getType())
     {
     case MessageType::HEAT_SETTINGS_UPDATE:
-        handleSettingsUpdate(static_cast<const HeatSettingsMessage&>(message), fromAddr, fromPort);
+        handleSettingsUpdate(static_cast<const HeatSettingsMessage&>(message), fromAddr);
         break;
 
     case MessageType::HEAT_SETTINGS_RETRIEVE:
@@ -115,7 +115,7 @@ void HeatingAppComponents::handleMessage(const Message &message, QHostAddress fr
     }
 }
 
-void HeatingAppComponents::handleSettingsUpdate(const HeatSettingsMessage &message, QHostAddress fromAddr, int /*fromPort*/)
+void HeatingAppComponents::handleSettingsUpdate(const HeatSettingsMessage &message, QHostAddress fromAddr)
 {
     qDebug() << "handle settings update";
     auto payload = message.payload();

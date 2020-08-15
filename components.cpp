@@ -2,7 +2,7 @@
 
 Components::Components(QObject *parent)
     : QObject (parent)
-    , mSender(new Sender(1234, this))
+    , mSender(new Sender(1234, mNetworkPortRepository, this))
     , mGrandCentral(new GrandCentral(this, this))
 {
     auto mainDb = DatabaseFactory::createDatabaseConnection();

@@ -12,7 +12,7 @@ MainApplication::MainApplication(QObject *parent) : QObject(parent)
   , mComponents(new Components(parent))
   , mHeatingApp(new HeatingApp(parent, mComponents.get()))
   , mTopologyApp(new TopologyApp(parent, *mComponents))
-  , mTerminalListener(new TerminalListener(mComponents->mSender, mComponents.get(), this, SERVER_LISTEN_PORT))
+  , mTerminalListener(new TerminalListener(mComponents.get(), this, SERVER_LISTEN_PORT))
   , mLightsApp(new LightsApp(this, mComponents.get()))
 {
     QThreadPool::globalInstance()->start(mHeatingApp);

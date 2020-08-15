@@ -13,6 +13,7 @@ public:
     Components(QObject* parent);
     ~Components() = default;
 
+    ReceivePortsBank mNetworkPortRepository;
     Sender* mSender;
     std::vector<ControllerInfo> mControllers;
     std::unique_ptr<HeatingAppComponents> mHeatingComponents;

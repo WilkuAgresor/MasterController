@@ -12,14 +12,15 @@ class MessageHandler : public QObject, public QRunnable
 {
     Q_OBJECT
 public:
-    MessageHandler(QObject* parent, QNetworkDatagram datagram, Components* components);
+    MessageHandler(QObject* parent, Message&& msg, QHostAddress fromAddr, Components* components);
     ~MessageHandler() = default;
 signals:
     void result(QNetworkDatagram datagram);
 protected:
     void run();
 private:
-    QNetworkDatagram mDatagram;
+    Message mMsg;
+    QHostAddress mFromAddr;
     Components* mComponents;
     static std::mutex mMutex;
 };

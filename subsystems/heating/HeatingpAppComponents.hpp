@@ -20,8 +20,8 @@ public:
     void reprovisionTerminalData(QHostAddress terminalAddr);
     void updateTerminalCurrentTemperatures(QHostAddress terminalAddr);
 
-    void handleMessage(const Message& message, QHostAddress fromAddr, int fromPort);
-    void handleSettingsUpdate(const HeatSettingsMessage &message, QHostAddress fromAddr, int fromPort);
+    void handleMessage(const Message& message, QHostAddress fromAddr);
+    void handleSettingsUpdate(const HeatSettingsMessage &message, QHostAddress fromAddr);
     void handleSettingsRetrieve(const HeatRetrieveMessage &message, QHostAddress fromAddr);
     void handleStatisticsRetrieve(const HeatRetrieveStatisticsMessage &message, QHostAddress fromAddr);
 

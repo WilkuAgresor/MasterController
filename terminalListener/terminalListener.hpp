@@ -6,9 +6,9 @@
 class TerminalListener : public Receiver
 {
 public:
-    TerminalListener(Sender* sender, Components* components, QObject *parent = nullptr, quint16 port = 12345);
+    TerminalListener(Components* components, QObject *parent = nullptr, quint16 port = 12345);
 
-    void handleMessage(QNetworkDatagram msg) override;
+    void handleMessage(Message msg, QHostAddress fromAddr) override;
 private:
     Components* mComponents;
     std::mutex mMutex;

@@ -19,11 +19,11 @@ public:
     void reprovisionTerminalData(QHostAddress terminalAddr);
     void sendToTerminals(const LightSettingsMessage &message, QHostAddress fromAddr);
 
-    void handleMessage(const Message& message, QHostAddress fromAddr, int fromPort);
+    void handleMessage(const Message& message, QHostAddress fromAddr);
 
     void handleClicked(int lightId);
 
-    void handleLightsUpdateFromTerminal(const LightSettingsMessage &message, QHostAddress fromAddr, int fromPort);
+    void handleLightsUpdateFromTerminal(const LightSettingsMessage &message, QHostAddress fromAddr);
     void handleLightsRetrieve(const LightsRetrieveMessage &message, QHostAddress fromAddr);
 
     Components* mSystemComponents;
