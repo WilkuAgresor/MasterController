@@ -34,8 +34,6 @@ Database::~Database()
 
 QSqlQuery Database::executeSqlQuery(const QString &query)
 {
-    //qDebug() << "DB query: "<< query;
-
     if(mModuleName.isEmpty())
     {
         return QSqlQuery(query);
@@ -408,7 +406,7 @@ LightControllerSettings Database::getLightSetting(int id)
     LightControllerSettings lightSettings;
     lightSettings.mId = query.value(idId).toInt();
     lightSettings.mName = query.value(idName).toString();
-    lightSettings.mType = query.value(idType).toInt();
+    lightSettings.mType = static_cast<LightControllerType>(query.value(idType).toInt());
 
     auto onVal = query.value(idIsOn).toInt();
     if(onVal == 0) lightSettings.mIsOn = false;
@@ -454,14 +452,18 @@ std::vector<LightControllerSettings> Database::getLightSettings()
         LightControllerSettings lightSettings;
         lightSettings.mId = query.value(idId).toInt();
         lightSettings.mName = query.value(idName).toString();
-        lightSettings.mType = query.value(idType).toInt();
+        lightSettings.mType = static_cast<LightControllerType>(query.value(idType).toInt());
 
+        lightSettings.mIsOnChanged = true;
         auto onVal = query.value(idIsOn).toInt();
         if(onVal == 0) lightSettings.mIsOn = false;
         else lightSettings.mIsOn = true;
 
+        lightSettings.mDimmChanged = true;
         lightSettings.mDimm = query.value(idDimm).toInt();
+        lightSettings.mColorChanged = true;
         lightSettings.mColor = query.value(idColor).toString();
+        lightSettings.mGuiSettingsChanged = true;
         lightSettings.mGuiSettings.mX = query.value(idX).toInt();
         lightSettings.mGuiSettings.mY = query.value(idY).toInt();
         lightSettings.mGuiSettings.mPlane = query.value(idPlane).toInt();
@@ -470,6 +472,123 @@ std::vector<LightControllerSettings> Database::getLightSettings()
         lightControllers.push_back(lightSettings);
     }
     return lightControllers;
+}
+
+std::vector<RemotePwmSetting> Database::getDimmLightSettings(int lightId)
+{
+    std::lock_guard<std::recursive_mutex> _lock(mMutex);
+    std::vector<RemotePwmSetting> remoteSettings;
+
+    QString queryString = R"(select RemoteExpanders.pinId, LightsControl.LightsControlDimm, Controllers.ipAddr, Controllers.port from RemoteExpanders
+                          LEFT JOIN RemoteDimmLights ON RemoteDimmLights.port = RemoteExpanders.id
+                          LEFT JOIN LightsControl ON LightsControl.LightsControlId = RemoteDimmLights.lightId
+                          LEFT JOIN Controllers ON RemoteExpanders.controller = Controllers.name
+                          WHERE RemoteDimmLights.lightId =
+                          )";
+    queryString.append(QString::number(lightId));
+
+    auto query = executeSqlQuery(queryString);
+
+    int idControllerIp = query.record().indexOf("ipAddr");
+    int idControllerPort = query.record().indexOf("port");
+    int idPinId = query.record().indexOf("pinId");
+    int idDimm = query.record().indexOf("LightsControlDimm");
+
+    while(query.next())
+    {
+        RemotePwmSetting setting;
+        setting.mControllerIpAddr = query.value(idControllerIp).toString();
+        setting.mControllerPort = query.value(idControllerPort).toInt();
+        setting.mPin = PinIdentifier(query.value(idPinId).toString());
+        setting.mValue = query.value(idDimm).toInt();
+        remoteSettings.push_back(setting);
+    }
+    return remoteSettings;
+}
+
+RGBSetting Database::getRGBSetting(int lightId)
+{
+    std::lock_guard<std::recursive_mutex> _lock(mMutex);
+
+    RGBSetting colorSetting;
+
+    {
+        QString queryRed = R"(select RemoteExpanders.pinId, LightsControl.LightsControlRGB, LightsControl.LightsControlDimm, Controllers.ipAddr, Controllers.port from RemoteExpanders
+                           LEFT JOIN RemoteRGBLights ON RemoteRGBLights.red = RemoteExpanders.id
+                           LEFT JOIN LightsControl ON LightsControl.LightsControlId = RemoteRGBLights.lightId
+                           LEFT JOIN Controllers ON RemoteExpanders.controller = Controllers.name
+                           WHERE RemoteRGBLights.lightId =
+                              )";
+        queryRed.append(QString::number(lightId));
+
+
+        auto query = executeSqlQuery(queryRed);
+
+        int idControllerIp = query.record().indexOf("ipAddr");
+        int idControllerPort = query.record().indexOf("port");
+        int idPinId = query.record().indexOf("pinId");
+
+        while(query.next())
+        {
+            RemotePwmSetting setting;
+            setting.mControllerIpAddr = query.value(idControllerIp).toString();
+            setting.mControllerPort = query.value(idControllerPort).toInt();
+            setting.mPin = PinIdentifier(query.value(idPinId).toString());
+            colorSetting.mRedPins.push_back(setting);
+        }
+    }
+
+    {
+        QString queryGreen = R"(select RemoteExpanders.pinId, LightsControl.LightsControlRGB, LightsControl.LightsControlDimm, Controllers.ipAddr, Controllers.port from RemoteExpanders
+                             LEFT JOIN RemoteRGBLights ON RemoteRGBLights.green = RemoteExpanders.id
+                             LEFT JOIN LightsControl ON LightsControl.LightsControlId = RemoteRGBLights.lightId
+                             LEFT JOIN Controllers ON RemoteExpanders.controller = Controllers.name
+                             WHERE RemoteRGBLights.lightId =
+                              )";
+        queryGreen.append(QString::number(lightId));
+
+        auto query = executeSqlQuery(queryGreen);
+
+        int idControllerIp = query.record().indexOf("ipAddr");
+        int idControllerPort = query.record().indexOf("port");
+        int idPinId = query.record().indexOf("pinId");
+
+        while(query.next())
+        {
+            RemotePwmSetting setting;
+            setting.mControllerIpAddr = query.value(idControllerIp).toString();
+            setting.mControllerPort = query.value(idControllerPort).toInt();
+            setting.mPin = PinIdentifier(query.value(idPinId).toString());
+            colorSetting.mGreenPins.push_back(setting);
+        }
+    }
+
+    {
+        QString queryBlue = R"(select RemoteExpanders.pinId, LightsControl.LightsControlRGB, LightsControl.LightsControlDimm, Controllers.ipAddr, Controllers.port from RemoteExpanders
+                            LEFT JOIN RemoteRGBLights ON RemoteRGBLights.blue = RemoteExpanders.id
+                            LEFT JOIN LightsControl ON LightsControl.LightsControlId = RemoteRGBLights.lightId
+                            LEFT JOIN Controllers ON RemoteExpanders.controller = Controllers.name
+                            WHERE RemoteRGBLights.lightId =
+                              )";
+        queryBlue.append(QString::number(lightId));
+
+        auto query = executeSqlQuery(queryBlue);
+
+        int idControllerIp = query.record().indexOf("ipAddr");
+        int idControllerPort = query.record().indexOf("port");
+        int idPinId = query.record().indexOf("pinId");
+
+        while(query.next())
+        {
+            RemotePwmSetting setting;
+            setting.mControllerIpAddr = query.value(idControllerIp).toString();
+            setting.mControllerPort = query.value(idControllerPort).toInt();
+            setting.mPin = PinIdentifier(query.value(idPinId).toString());
+            colorSetting.mBluePins.push_back(setting);
+        }
+    }
+
+    return colorSetting;
 }
 
 std::map<int,int> Database::getLightsGroupingMap()
@@ -531,6 +650,39 @@ void Database::setLightsColor(int lightId, const QString &color)
     queryString.append(color);
     queryString.append(R"(" WHERE LightsControlId = )");
     queryString.append(QString::number(lightId));
+
+    executeSqlQuery(queryString);
+}
+
+void Database::setLightsGuiSettings(int lightId, const LightControllerGuiSettings &guiSettings)
+{
+    std::lock_guard<std::recursive_mutex> _lock(mMutex);
+
+    QString queryString = R"(UPDATE LightsControlGuiSetting SET x = )";
+    queryString.append(QString::number(guiSettings.mX));
+    queryString.append(R"( WHERE LightsControlId = )");
+    queryString.append(QString::number(lightId));
+
+    qDebug() << "query: "<<queryString;
+
+    executeSqlQuery(queryString);
+
+    queryString = R"(UPDATE LightsControlGuiSetting SET y = )";
+    queryString.append(QString::number(guiSettings.mY));
+    queryString.append(R"( WHERE LightsControlId = )");
+    queryString.append(QString::number(lightId));
+
+    qDebug() << "query: "<<queryString;
+
+    executeSqlQuery(queryString);
+
+    queryString = R"(UPDATE LightsControlGuiSetting SET plane = )";
+    queryString.append(QString::number(guiSettings.mPlane));
+    queryString.append(R"( WHERE LightsControlId = )");
+    queryString.append(QString::number(lightId));
+
+    qDebug() << "query: "<<queryString;
+
 
     executeSqlQuery(queryString);
 }

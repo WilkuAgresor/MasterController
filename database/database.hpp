@@ -7,6 +7,7 @@
 #include <../common/subsystems/lights/LightControllerSettings.hpp>
 #include <hardware/PinMapping.hpp>
 #include <subsystems/heating/SensorData.hpp>
+#include <LeonardoIpExecutor/RemoteRGBSetting.hpp>
 
 struct ControllerInfo
 {
@@ -31,8 +32,6 @@ struct ControllerInfo
     uint64_t key;
     Type type;
     Status status;
-
-
 
     QString print()
     {
@@ -95,9 +94,13 @@ public:
     LightControllerSettings getLightSetting(int id);
     std::vector<LightControllerSettings> getLightSettings();
 
+    std::vector<RemotePwmSetting> getDimmLightSettings(int lightId);
+    RGBSetting getRGBSetting(int lightId);
+
     void setLightsIsOn(int lightId, bool isOn);
     void setLightsDimm(int lightId, int dimm);
     void setLightsColor(int lightId, const QString& color);
+    void setLightsGuiSettings(int lightId, const LightControllerGuiSettings& guiSettings);
 
     PinMapping getLightPinMapping(int lightId);
     int getLightGroupingId(int lightId);

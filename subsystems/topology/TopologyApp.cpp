@@ -4,18 +4,33 @@
 #include <thread>
 #include <chrono>
 
-TopologyApp::TopologyApp(QObject *parent, Components &components)
-    : QObject (parent), mComponents(components)
+TopologyApp::TopologyApp(QObject *parent, Components *components)
+    : AppBase(parent, components)
 {
+}
+
+TopologyApp::~TopologyApp()
+{
+    for(auto& controller: mComponents->mControllers)
+    {
+        MasterShutdownMessage message;
+
+        if( controller.type == ControllerInfo::Type::TERMINALv1)
+        {
+            QHostAddress address (controller.ipAddr);
+            mComponents->mSender->send(address,TERMINAL_LISTEN_PORT, message.toData());
+        }
+    }
 }
 
 void TopologyApp::run()
 {
+
     while(true)
     {
         std::this_thread::sleep_for(std::chrono::seconds(10));
 
-        for(auto& controller: mComponents.mControllers)
+        for(auto& controller: mComponents->mControllers)
         {
             if( controller.type == ControllerInfo::Type::TERMINALv1)
             {
@@ -26,7 +41,7 @@ void TopologyApp::run()
                 message.updateHeader(header);
 
                 QHostAddress address(controller.ipAddr);
-                mComponents.mSender->send(address,TERMINAL_LISTEN_PORT, message.toData());
+                mComponents->mSender->send(address,TERMINAL_LISTEN_PORT, message.toData());
             }
         }
     }

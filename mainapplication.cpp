@@ -11,7 +11,7 @@ MainApplication::MainApplication(QObject *parent) : QObject(parent)
   , mKeyKeeper(this)
   , mComponents(new Components(parent))
   , mHeatingApp(new HeatingApp(parent, mComponents.get()))
-  , mTopologyApp(new TopologyApp(parent, *mComponents))
+  , mTopologyApp(new TopologyApp(parent, mComponents.get()))
   , mTerminalListener(new TerminalListener(mComponents.get(), this, SERVER_LISTEN_PORT))
   , mLightsApp(new LightsApp(this, mComponents.get()))
 {

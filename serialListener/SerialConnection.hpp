@@ -48,7 +48,8 @@ public slots:
     void setInputState(const PinIdentifier& input, LogicState state);
 
 private:
-    std::mutex mMutex;
+    std::mutex mSendMutex;
+    std::mutex mReceiveMutex;
     Components* mComponents;
     QString mSerialDevice;
     int mBaudRate = 74880;

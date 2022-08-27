@@ -22,6 +22,11 @@ GrandCentral::GrandCentral(QObject *parent, Components *components)
 
 void GrandCentral::addOrUpdatePinMapping(const PinMapping &mapping)
 {
+    if(!isInitialized())
+    {
+        return;
+    }
+
     auto found = std::find(mMappings.begin(), mMappings.end(), mapping);
     if(found != mMappings.end())
     {
@@ -34,6 +39,10 @@ void GrandCentral::addOrUpdatePinMapping(const PinMapping &mapping)
 
 void GrandCentral::setInputState(int mappingId, LogicState state)
 {
+    if(!isInitialized())
+    {
+        return;
+    }
     qDebug() << "state change to "<<static_cast<int>(state);
 
     for(auto& mapping: mMappings)
@@ -64,6 +73,11 @@ void GrandCentral::stateChangeNotif(PinIdentifier id, bool state)
 
 int GrandCentral::getPinsGroupingId(const PinIdentifier &pin)
 {
+    if(!isInitialized())
+    {
+        return -1;
+    }
+
     for(auto& grouping: mMappings)
     {
         if(grouping.containsOutputPin(pin))
@@ -76,6 +90,11 @@ int GrandCentral::getPinsGroupingId(const PinIdentifier &pin)
 
 int GrandCentral::getInputPinsGroupingId(const PinIdentifier &pin)
 {
+    if(!isInitialized())
+    {
+        return -1;
+    }
+
     for(auto& grouping: mMappings)
     {
         if(grouping.containsInputPin(pin))
@@ -88,6 +107,11 @@ int GrandCentral::getInputPinsGroupingId(const PinIdentifier &pin)
 
 OutputState GrandCentral::getPinDefaultOutputState(const PinIdentifier &pin)
 {
+    if(!isInitialized())
+    {
+        return OutputState::UNDEFINED;
+    }
+
     for(const auto& pinData: mPins)
     {
         if(pinData->getPinId() == pin)
@@ -100,7 +124,22 @@ OutputState GrandCentral::getPinDefaultOutputState(const PinIdentifier &pin)
 
 void GrandCentral::reprovisionOutputValues()
 {
+    if(!isInitialized())
+    {
+        return;
+    }
+
     mSerialConnection->reprovisionAllOutputStates();
+}
+
+void GrandCentral::setInitialized(bool value)
+{
+    mIsInitialized = value;
+}
+
+bool GrandCentral::isInitialized()
+{
+    return mIsInitialized;
 }
 
 void GrandCentral::resetGrandCentralSettings()
@@ -108,7 +147,7 @@ void GrandCentral::resetGrandCentralSettings()
 }
 
 void GrandCentral::setInOutMappings()
-{
+{   
     std::array<std::bitset<16>,26> inMappings; //also for virtual mappings
     std::array<std::bitset<16>,16> outMappings;
 
@@ -154,7 +193,6 @@ void GrandCentral::setInOutMappings()
             }
         }
     }
-    mSerialConnection->initAll();
 }
 
 void GrandCentral::initializePins()
@@ -175,6 +213,8 @@ void GrandCentral::initializePins()
     mSerialConnection->terminateAll();
 
     setInOutMappings();
+
+    mSerialConnection->initAll();
 
     mSerialConnection->flashSave();
 }

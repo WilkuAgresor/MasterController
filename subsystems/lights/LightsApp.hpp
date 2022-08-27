@@ -4,15 +4,15 @@
 #include <QObject>
 #include <QRunnable>
 #include <subsystems/lights/LightsAppComponents.hpp>
+#include <subsystems/AppBase.hpp>
 
-class LightsApp : public QObject , public QRunnable
+
+class LightsApp : public AppBase
 {
     Q_OBJECT
 public:
     LightsApp(QObject* parent, Components* components);
-    ~LightsApp() = default;
+    virtual ~LightsApp() = default;
 
     void run();
-
-    Components* mComponents;
 };

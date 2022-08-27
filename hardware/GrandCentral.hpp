@@ -25,6 +25,9 @@ public:
 
     void reprovisionOutputValues();
 
+    void setInitialized(bool value);
+    bool isInitialized();
+
 signals:
     void inputPinStateChangeNotif(PinIdentifier id, bool state);
 
@@ -40,4 +43,6 @@ private:
     Components* mComponents;
 
     SerialConnection* mSerialConnection;
+
+    bool mIsInitialized = true;
 };

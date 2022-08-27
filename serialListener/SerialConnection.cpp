@@ -56,7 +56,7 @@ bool SerialConnection::connect()
 
 bool SerialConnection::sendCommand(const QString &command)
 {
-    std::lock_guard<std::mutex> _lock(mMutex);
+    std::lock_guard<std::mutex> _lock(mSendMutex);
 
     if(!mPort->isWritable())
     {
@@ -78,7 +78,14 @@ bool SerialConnection::sendCommand(const QString &command)
 void SerialConnection::handleIncomingCommand(QString command)
 try
 {
+    std::lock_guard<std::mutex> _lock(mReceiveMutex);
     qDebug() << "incoming command: "<<command;
+
+//    if(command == "info,Initialized all mcp's")
+//    {
+//        qDebug() << "INITIALIZED MCPs";
+//        mComponents->mGrandCentral->setInitialized(true);
+//    }
 
     auto args = command.split(",", QString::SkipEmptyParts);
 
@@ -357,7 +364,8 @@ void SerialConnection::handleReadyRead()
 
 void SerialConnection::handleError(QSerialPort::SerialPortError serialPortError)
 {
-    qDebug() << "error occured: "<<serialPortError;
+    qDebug() << "Serial error occured. Reestablishing connection: "<<serialPortError;
+
     mPort->disconnect();
     mPort = new QSerialPort(this);
 

@@ -17,6 +17,7 @@ public:
     LightsAppComponents(QObject* parent, Components* components);
 
     void reprovisionTerminalData(QHostAddress terminalAddr);
+    void reprovisionHardwareState();
     void sendToTerminals(const LightSettingsMessage &message, QHostAddress fromAddr);
 
     void handleMessage(const Message& message, QHostAddress fromAddr);
@@ -24,13 +25,16 @@ public:
     void handleClicked(int lightId);
 
     void handleLightsUpdateFromTerminal(const LightSettingsMessage &message, QHostAddress fromAddr);
+    void lightsUpdateFromTerminal(const std::vector<LightControllerSettings> &lightSettings);
     void handleLightsRetrieve(const LightsRetrieveMessage &message, QHostAddress fromAddr);
+    void handleRemoteLights(int lightId);
 
     Components* mSystemComponents;
 public slots:
     void handleStateChanged(PinIdentifier pinId, bool state);
 
-private:
+private:       
+
     std::map<int,int> mLightToGroupingMap;
     std::mutex mDbMutex;
 };

@@ -6,13 +6,14 @@
 #include <chrono>
 
 LightsApp::LightsApp(QObject *parent, Components *components)
-    : QObject (parent)
-    , mComponents(components)
+    : AppBase(parent, components)
 {
 }
 
 void LightsApp::run()
 {
+    waitUntilInitialized();
+
     while(true)
     {
         std::this_thread::sleep_for(std::chrono::seconds(10));

@@ -19,17 +19,6 @@ Pin::Pin(QObject* parent, SerialConnection *serialConnection, const PinIdentifie
     }
 }
 
-//Pin::Pin(const Pin& pin)
-//    :QObject(pin.parent()),
-//    mSerialConnection(pin.mSerialConnection),
-//    mType(pin.mType),
-//    mLogicalOutputState(pin.mLogicalOutputState),
-//    mDefaultState(pin.mDefaultState),
-//    mMappingId(pin.mMappingId)
-//{
-//    QObject::connect(this, SIGNAL(stateChange(PinIdentifier, OutputState)), &mSerialConnection, SLOT(setOutputState(PinIdentifier, OutputState)));
-//}
-
 PinType Pin::getPinType() const
 {
     return mType;

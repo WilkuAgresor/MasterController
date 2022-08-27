@@ -35,12 +35,19 @@ enum class PinType : int
     INPUT_NO_PULLUP = 2,
     OUTPUT_HIGH = 3,
     OUTPUT_LOW = 4,
-    VIRTUAL_INPUT = 5
+    VIRTUAL_INPUT = 5,
+    PWM_OUTPUT = 6
 };
 
 struct PinIdentifier
 {
     PinIdentifier() {};
+    PinIdentifier(const QString& idDbEntry)
+    {
+        auto list = idDbEntry.split(",");
+        mExpanderId = list[0].toInt();
+        mPinId = list[1].toInt();
+    }
     PinIdentifier(int expander, int pin)
         :mExpanderId(expander), mPinId(pin)
     {

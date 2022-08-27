@@ -4,17 +4,15 @@
 #include <QObject>
 #include <QRunnable>
 #include <subsystems/heating/HeatingpAppComponents.hpp>
+#include <subsystems/AppBase.hpp>
 
 
-
-class HeatingApp : public QObject , public QRunnable
+class HeatingApp : public AppBase
 {
     Q_OBJECT
 public:
     HeatingApp(QObject* parent, Components* components);
-    ~HeatingApp() = default;
+    virtual ~HeatingApp() = default;
 
     void run();
-
-    Components* mComponents;
 };

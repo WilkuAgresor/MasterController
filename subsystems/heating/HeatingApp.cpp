@@ -7,12 +7,14 @@
 #include <cstdlib>
 
 HeatingApp::HeatingApp(QObject *parent, Components *components)
-    : QObject (parent), mComponents(components)
+    : AppBase(parent, components)
 {
 }
 
 void HeatingApp::run()
 {   
+    waitUntilInitialized();
+
     std::system("sudo owfs --i2c=ALL:ALL --allow_other /mnt/1wire/ --timeout_volatile=120");
 
     while(true)

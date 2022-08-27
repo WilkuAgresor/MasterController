@@ -23,7 +23,11 @@ SOURCES += \
     ../common/subsystems/heating/HeatingZoneSettings.cpp \
     ../common/subsystems/lights/LightControllerSettings.cpp \
     ../common/subsystems/lights/LightsRetrieveMessage.cpp \
+    ../common/subsystems/schedule/ScheduleEventTypes.cpp \
     ../common/subsystems/topology/topologyMessages.cpp \
+    LeonardoIpExecutor/LeoMessage.cpp \
+    LeonardoIpExecutor/RemoteRGBSetting.cpp \
+    database/ScheduleDatabase.cpp \
     hardware/GrandCentral.cpp \
     hardware/Pin.cpp \
     hardware/PinIdentifier.cpp \
@@ -45,10 +49,14 @@ SOURCES += \
     ../common/json/jsonSerialization.cpp \
     ../common/messages/replyMessage.cpp \
     serialListener/SerialConnection.cpp \
+    subsystems/AppBase.cpp \
     subsystems/heating/HeatingpAppComponents.cpp \
     subsystems/heating/SensorDatabase.cpp \
     subsystems/lights/LightsApp.cpp \
     subsystems/lights/LightsAppComponents.cpp \
+    subsystems/schedule/ScheduleApp.cpp \
+    subsystems/schedule/ScheduleAppComponents.cpp \
+    subsystems/schedule/Timer.cpp \
     subsystems/topology/TopologyApp.cpp \
     terminalListener/terminalListener.cpp \
     terminalListener/messageHandler.cpp \
@@ -80,9 +88,14 @@ HEADERS += \
     ../common/subsystems/lights/LightControllerSettings.hpp \
     ../common/subsystems/lights/LightsDictionary.hpp \
     ../common/subsystems/lights/LightsRetrieveMessage.hpp \
+    ../common/subsystems/schedule/ScheduleDictionary.hpp \
+    ../common/subsystems/schedule/ScheduleEventTypes.hpp \
     ../common/subsystems/topology/topologyMessages.hpp \
+    LeonardoIpExecutor/LeoMessage.hpp \
+    LeonardoIpExecutor/RemoteRGBSetting.hpp \
     connection/connectiontimer.hpp \
     connection/connectionmonitor.hpp \
+    database/ScheduleDatabase.hpp \
     database/database.hpp \
     database/devicedb.hpp \
     hardware/GrandCentral.hpp \
@@ -108,10 +121,14 @@ HEADERS += \
     ../common/CommonDefinitions.hpp \
     components.hpp \
     serialListener/SerialConnection.hpp \
+    subsystems/AppBase.hpp \
     subsystems/heating/HeatingpAppComponents.hpp \
     subsystems/heating/SensorDatabase.hpp \
     subsystems/lights/LightsApp.hpp \
     subsystems/lights/LightsAppComponents.hpp \
+    subsystems/schedule/ScheduleApp.hpp \
+    subsystems/schedule/ScheduleAppComponents.hpp \
+    subsystems/schedule/Timer.hpp \
     subsystems/topology/TopologyApp.hpp \
     terminalListener/terminalListener.hpp \
     terminalListener/messageHandler.hpp \
