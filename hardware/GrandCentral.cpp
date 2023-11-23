@@ -2,6 +2,8 @@
 #include <components.hpp>
 #include <database/database.hpp>
 #include <bitset>
+#include <QtConcurrent/QtConcurrent>
+#include <QFile>
 
 GrandCentral::GrandCentral(QObject *parent, Components *components)
     : QObject(parent)
@@ -12,10 +14,25 @@ GrandCentral::GrandCentral(QObject *parent, Components *components)
     qRegisterMetaType<OutputState>("OutputState");
     qRegisterMetaType<LogicState>("LogicState");
 
+    QObject::connect(mSerialConnection, SIGNAL(sessionIdUpdate(quint32)), this, SLOT(handleSessionIdChange(quint32)));
 
-    //initialize pins
-    initializePins();
-    //initialize mappings
+    {
+        std::lock_guard<std::mutex> _lock(mDbMutex);
+        auto db = DatabaseFactory::createDatabaseConnection("hardware");
+        auto pinMap = db->getGrandCentralPins();
+
+        for(auto& pair: pinMap)
+        {
+            mPins.emplace_back(new Pin(this, mSerialConnection, pair.first, pair.second));
+        }
+        mMappings = db->getGrandCentralPinGroupings();
+    }
+
+    mSerialConnection->initialize();
+
+//    //initialize pins
+//    initializePins();
+//    //initialize mappings
 }
 
 
@@ -45,6 +62,8 @@ void GrandCentral::setInputState(int mappingId, LogicState state)
     }
     qDebug() << "state change to "<<static_cast<int>(state);
 
+    qDebug() << "mappings size: "<<mMappings.size();
+
     for(auto& mapping: mMappings)
     {
         if(mapping.getId() == mappingId)
@@ -55,6 +74,7 @@ void GrandCentral::setInputState(int mappingId, LogicState state)
                 {
                     if(physicalPin->getPinId() == pinId && physicalPin->getPinType() == PinType::VIRTUAL_INPUT)
                     {
+                        qDebug() << "setting logic input state";
                         physicalPin->setLogicInputState(state);
                         break;
                     }
@@ -139,7 +159,58 @@ void GrandCentral::setInitialized(bool value)
 
 bool GrandCentral::isInitialized()
 {
+    qDebug() << "grand central initialized: "<< mIsInitialized;
     return mIsInitialized;
+}
+
+void GrandCentral::handleSessionIdChange(quint32 sessionId)
+{
+    qDebug() << "sessionId update: "<<sessionId;
+
+
+        if(sessionId == 0)
+        {
+            return;
+        }
+
+        std::unique_lock<std::mutex> lock(mDbMutex);
+
+        ControllerInfo controllerInfo;
+
+        auto db = DatabaseFactory::createDatabaseConnection("hardware");
+        for(auto& controller: db->getControllers())
+        {
+            if(controller.type == ControllerInfo::Type::USB_SERIAL_GRAND_CENTRAL)
+            {
+                controllerInfo = controller;
+                break;
+            }
+        }
+
+        auto forceControllerUpdate = QFile::exists(sForceControllerConfigurationFlagFile);
+
+        qDebug() << "force controller update value: "<<forceControllerUpdate;
+
+        if(sessionId != controllerInfo.key || forceControllerUpdate)
+        {
+            //grand central was rebooted. Need to send down the current configuration and update the sessionID in the Database
+            qDebug() << "new hardware session ID. Saving in the DB";
+            db->updateControllerCurKey(controllerInfo.name, sessionId);
+            controllerInfo.key = sessionId;
+            db.reset();
+            lock.unlock();
+
+            initializePins();
+            mComponents->sendHardwareReprovisionNotif(controllerInfo);
+        }
+        else
+        {
+            lock.unlock();
+
+            qDebug() << "Known session ID, reprovisioning the DB data";
+            mComponents->sendHardwareReprovisionNotif(controllerInfo);
+        }
+
 }
 
 void GrandCentral::resetGrandCentralSettings()
@@ -185,7 +256,7 @@ void GrandCentral::setInOutMappings()
     for(auto& grouping: mMappings)
     {
         for(auto input: grouping.getInputPins())
-        {
+        {            
             for(auto output: grouping.getOutputPins())
             {
                 mSerialConnection->addInputMapping(input, output);
@@ -197,17 +268,6 @@ void GrandCentral::setInOutMappings()
 
 void GrandCentral::initializePins()
 {
-    {
-        auto db = DatabaseFactory::createDatabaseConnection("hardware");
-        auto pinMap = db->getGrandCentralPins();
-
-        for(auto& pair: pinMap)
-        {           
-            mPins.emplace_back(new Pin(this, mSerialConnection, pair.first, pair.second));
-        }
-        mMappings = db->getGrandCentralPinGroupings();
-    }
-
     mSerialConnection->flashErase();
 
     mSerialConnection->terminateAll();

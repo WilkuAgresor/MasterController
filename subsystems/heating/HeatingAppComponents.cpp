@@ -1,4 +1,4 @@
-#include "HeatingpAppComponents.hpp"
+#include "HeatingAppComponents.hpp"
 #include <../common/messages/replyMessage.hpp>
 #include "SensorDatabase.hpp"
 #include <components.hpp>

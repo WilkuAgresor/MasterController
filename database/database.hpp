@@ -6,39 +6,9 @@
 #include <../common/subsystems/heating/HeatingZoneSettings.hpp>
 #include <../common/subsystems/lights/LightControllerSettings.hpp>
 #include <hardware/PinMapping.hpp>
+#include <hardware/ControllerInfo.hpp>
 #include <subsystems/heating/SensorData.hpp>
 #include <LeonardoIpExecutor/RemoteRGBSetting.hpp>
-
-struct ControllerInfo
-{
-    enum Type : int
-    {
-        RPI_3Bp = 0,
-        ARD_LEO = 1,
-        TERMINALv1 = 2,
-        USB_SERIAL_START = 1000,
-        USB_SERIAL_GRAND_CENTRAL = 1001
-    };
-
-    enum Status : int
-    {
-        INACTIVE = 0,
-        ACTIVE   = 1
-    };
-
-    QString name;
-    QString ipAddr;
-    uint64_t port;
-    uint64_t key;
-    Type type;
-    Status status;
-
-    QString print()
-    {
-        return "name="+name+" ipAddr="+ ipAddr+" port="+ QString::number(port)+" key="+QString::number(key) + " type="+QString::number(static_cast<int>(type))
-                 + " status="+QString::number(static_cast<int>(status));
-    }
-};
 
 class Database
 {
@@ -94,8 +64,10 @@ public:
     LightControllerSettings getLightSetting(int id);
     std::vector<LightControllerSettings> getLightSettings();
 
-    std::vector<RemotePwmSetting> getDimmLightSettings(int lightId);
+    std::vector<RemotePinSetting> getDimmLightSettings(int lightId);
     RGBSetting getRGBSetting(int lightId);
+
+    std::vector<RemotePinSetting> getRemoteSwitchSettings(int lightId);
 
     void setLightsIsOn(int lightId, bool isOn);
     void setLightsDimm(int lightId, int dimm);

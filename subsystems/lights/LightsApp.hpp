@@ -4,7 +4,7 @@
 #include <QObject>
 #include <QRunnable>
 #include <subsystems/lights/LightsAppComponents.hpp>
-#include <subsystems/AppBase.hpp>
+#include <../common/subsystems/AppBase.hpp>
 
 
 class LightsApp : public AppBase

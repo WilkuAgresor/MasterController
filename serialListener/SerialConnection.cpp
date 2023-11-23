@@ -8,26 +8,43 @@ SerialConnection::SerialConnection(Components *components)
     , mComponents(components)
 {
     mPort = new QSerialPort(this);
-    qDebug() <<"serial conn constructor";
+}
 
-    auto db = DatabaseFactory::createDatabaseConnection("serial");
-    for(auto& controller: db->getControllers())
+bool SerialConnection::initialize()
+{
+    qDebug() <<"serial conn initialization";
+
     {
-        if(controller.type == ControllerInfo::Type::USB_SERIAL_GRAND_CENTRAL)
+        std::lock_guard<std::mutex> _lock(mReceiveMutex);
+        auto db = DatabaseFactory::createDatabaseConnection("serial");
+        for(auto& controller: db->getControllers())
         {
-            mSerialDevice = controller.ipAddr;
-            break;
+            if(controller.type == ControllerInfo::Type::USB_SERIAL_GRAND_CENTRAL)
+            {
+                mSerialDevice = controller.ipAddr;
+                break;
+            }
         }
     }
 
-    if(!connect())
-    {
+    int counter = 0;
 
+    while(!connect())
+    {
+        if(counter >= 10)
+        {
+            return false;
+        }
+        std::this_thread::sleep_for(std::chrono::seconds(5));
+        counter++;
     }
+
+    return true;
 }
 
 bool SerialConnection::connect()
 {
+    std::unique_lock<std::mutex> lock(mReceiveMutex);
     auto ports = QSerialPortInfo::availablePorts();
     for(auto& port: ports)
     {
@@ -39,10 +56,39 @@ bool SerialConnection::connect()
             mPort->setBaudRate(mBaudRate, QSerialPort::AllDirections);
             if(mPort->open(QIODevice::ReadWrite))
             {
+                qDebug() << "serial port open";
                 QObject::connect(mPort, SIGNAL(readyRead()), this, SLOT(handleReadyRead()));
                 QObject::connect(mPort, SIGNAL(errorOccurred(QSerialPort::SerialPortError)), this, SLOT(handleError(QSerialPort::SerialPortError)));
-                qDebug() << "Serial connection with GrandCentral established";
-                return true;
+
+                qDebug() << "receive serial clear mutex";
+                lock.unlock();
+
+                auto sessionIdResult =  getSessionId();
+                if(sessionIdResult)
+                {
+                    QtConcurrent::run([this]{
+                        int counter = 0;
+                        while(mSessionId == 0)
+                        {
+                            qDebug() << "Waiting for session ID with grand central";
+                            std::this_thread::sleep_for(std::chrono::milliseconds(1000));
+                            counter++;
+                            if(counter >= 30)
+                            {
+                                qDebug() << "Failed to get sessionID of Grand Central";
+                            }
+                        }
+
+                        qDebug() << "Session ID: "<< mSessionId;
+//                        serialConnected();
+                        qDebug() << "finished processing serial connection";
+                    });
+
+                    qDebug() << "waiting is asynchronous";
+
+                    return true;
+                }                
+                return false;
             }
             else
             {
@@ -56,7 +102,11 @@ bool SerialConnection::connect()
 
 bool SerialConnection::sendCommand(const QString &command)
 {
+    qDebug() << "sending command via serial before mutex: " << command;
+
     std::lock_guard<std::mutex> _lock(mSendMutex);
+
+    qDebug() << "sending command via serial: " << command;
 
     if(!mPort->isWritable())
     {
@@ -78,14 +128,11 @@ bool SerialConnection::sendCommand(const QString &command)
 void SerialConnection::handleIncomingCommand(QString command)
 try
 {
-    std::lock_guard<std::mutex> _lock(mReceiveMutex);
+    qDebug() << "receive serial before mutex command: "<<command;
+
+//    std::lock_guard<std::mutex> _lock(mReceiveMutex);
     qDebug() << "incoming command: "<<command;
 
-//    if(command == "info,Initialized all mcp's")
-//    {
-//        qDebug() << "INITIALIZED MCPs";
-//        mComponents->mGrandCentral->setInitialized(true);
-//    }
 
     auto args = command.split(",", QString::SkipEmptyParts);
 
@@ -110,6 +157,15 @@ try
 
         mComponents->mLightsComponents->handleClicked(id);
     }
+    if(commandType == "sessionId")
+    {
+        auto sessionId = args.at(1).toInt();
+        if(sessionId != 0)
+        {
+            mSessionId = sessionId;
+        }
+        sessionIdUpdate(mSessionId);
+    }
     else if(commandType == "info")
     {
         QString command;
@@ -123,7 +179,14 @@ try
             }
             command.append(part);
         }
-        qDebug() << "command";
+        qDebug() << "command: "<<command;
+
+        if(args.size() == 2 && args.at(1) == "Initialized all mcp's")
+        {
+            mComponents->mGrandCentral->setInitialized(true);
+            qDebug() << "initialized all mcp";
+        }
+
     }
     else if(commandType == "stateChange")
     {
@@ -136,6 +199,7 @@ try
 
         mComponents->mGrandCentral->stateChangeNotif(pinId, state != 0);
     }
+    qDebug() << "receive serial clear mutex";
 }
 catch(const std::exception& ex)
 {
@@ -184,6 +248,12 @@ void SerialConnection::setGroupId(const PinIdentifier &input, std::uint16_t grou
     qDebug() << "command: "<<command;
 
     sendCommand(command);
+}
+
+bool SerialConnection::getSessionId()
+{
+    QString command = "<getSessionId>";
+    return sendCommand(command);
 }
 
 void SerialConnection::addInputMapping(const PinIdentifier &input, const PinIdentifier &output)
@@ -340,9 +410,12 @@ void SerialConnection::reprovisionAllOutputStates()
 void SerialConnection::handleReadyRead()
 {
     qDebug() << "ready read";
-    if(mPort->canReadLine())
+    std::unique_lock<std::mutex> lock(mReceiveMutex);
+    while(mPort->canReadLine())
     {
         QString data = QString::fromStdString(mPort->readLine().toStdString());
+
+        qDebug() << "received line: "<<data;
 
         auto messages = data.split("<", QString::SkipEmptyParts);
 
@@ -364,15 +437,20 @@ void SerialConnection::handleReadyRead()
 
 void SerialConnection::handleError(QSerialPort::SerialPortError serialPortError)
 {
+    mSessionId = 0;
+    sessionIdUpdate(mSessionId);
+    serialDisconnected();
+
     qDebug() << "Serial error occured. Reestablishing connection: "<<serialPortError;
 
     mPort->disconnect();
-    mPort = new QSerialPort(this);
+//    mPort = new QSerialPort(this);
 
     while(!connect())
     {
-        std::this_thread::sleep_for(std::chrono::seconds(5));
+        std::this_thread::sleep_for(std::chrono::seconds(3));
     }
+    qDebug() << "serial error handling finished";
 }
 
 

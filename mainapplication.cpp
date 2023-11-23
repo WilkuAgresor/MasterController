@@ -2,6 +2,7 @@
 #include <limits>
 #include <random>
 #include <../common/subsystems/alarm/alarmSetMessage.hpp>
+#include <hardware/ControllerInfo.hpp>
 
 #include <chrono>
 #include <thread>
@@ -15,6 +16,8 @@ MainApplication::MainApplication(QObject *parent) : QObject(parent)
   , mTerminalListener(new TerminalListener(mComponents.get(), this, SERVER_LISTEN_PORT))
   , mLightsApp(new LightsApp(this, mComponents.get()))
 {
+    qRegisterMetaType<ControllerInfo>("ControllerInfo");
+
     QThreadPool::globalInstance()->start(mHeatingApp);
     QThreadPool::globalInstance()->start(mTopologyApp);
     QThreadPool::globalInstance()->start(mLightsApp);

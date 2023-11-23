@@ -36,7 +36,8 @@ enum class PinType : int
     OUTPUT_HIGH = 3,
     OUTPUT_LOW = 4,
     VIRTUAL_INPUT = 5,
-    PWM_OUTPUT = 6
+    VIRTUAL_OUTPUT = 6,
+    PWM_OUTPUT = 7
 };
 
 struct PinIdentifier

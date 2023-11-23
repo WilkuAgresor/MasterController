@@ -16,6 +16,7 @@ LightsAppComponents::LightsAppComponents(QObject *parent, Components *components
 
         QObject::connect(mSystemComponents->mGrandCentral, SIGNAL(inputPinStateChangeNotif(PinIdentifier, bool)),
                          this, SLOT(handleStateChanged(PinIdentifier, bool)));
+        QObject::connect(mSystemComponents, SIGNAL(hardwareReprovisionNotif(ControllerInfo)), this, SLOT(handleHardwareReprovisionNotif(ControllerInfo)));
     }
 
 //    while(!mSystemComponents->mGrandCentral->isInitialized())
@@ -101,12 +102,13 @@ void LightsAppComponents::handleStateChanged(PinIdentifier pinId, bool state)
     {
         if(pair.second == pinGroupId)
         {
-            std::unique_lock<std::mutex> lock(mDbMutex);
-
+            bool stateChanged = false;
             qDebug() << "output pin of light id: "<<pair.first;
             LightControllerSettings dbSettings;
 
             {
+                std::lock_guard<std::mutex> _lock(mDbMutex);
+
                 auto database = DatabaseFactory::createDatabaseConnection("lights");
                 dbSettings = database->getLightSetting(pair.first);
 
@@ -115,6 +117,7 @@ void LightsAppComponents::handleStateChanged(PinIdentifier pinId, bool state)
 
                 if(currentLogicState != dbLogicState)
                 {
+                    stateChanged = true;
                     qDebug() << "STATE CHANGE!";
                     database->setLightsIsOn(pair.first, logicStateToBool(currentLogicState));
                 }
@@ -129,16 +132,45 @@ void LightsAppComponents::handleStateChanged(PinIdentifier pinId, bool state)
                 QHostAddress address;
 
                 sendToTerminals(message, address);
-
-                lock.unlock();
             }
 
-            if(dbSettings.mType == LightControllerType::DIMM || dbSettings.mType == LightControllerType::COLOR)
+            if(stateChanged)
             {
+                qDebug() << "remote light state change!";
                 handleRemoteLights(pair.first);
             }
+
             break;
         }
+    }
+}
+
+void LightsAppComponents::handleHardwareReprovisionNotif(ControllerInfo controllerInfo)
+{
+    std::lock_guard<std::mutex> _lock(mDbMutex);
+
+    auto database = DatabaseFactory::createDatabaseConnection("lights");
+
+    auto lightSettings = database->getLightSettings();
+
+    switch(controllerInfo.type)
+    {
+    case ControllerInfo::Type::USB_SERIAL_GRAND_CENTRAL:
+        for(auto& light: lightSettings)
+        {
+            LogicState state = boolToLogicState(light.mIsOn); /*light.mIsOn ? LogicState::ON : LogicState::OFF;*/
+
+            mSystemComponents->mGrandCentral->setInputState(database->getLightGroupingId(light.mId), state);
+        }
+        break;
+    case ControllerInfo::Type::ARD_LEO:
+        database->updateControllerCurKey(controllerInfo.name, controllerInfo.key);
+        qDebug() << "ARD LEO reprovision incoming: "<<controllerInfo.ipAddr<<" sessionId: "<<controllerInfo.key;               
+
+        break;
+    default:
+        qDebug() << "Unsupported Hardware Reprovision type";
+        break;
     }
 }
 
@@ -232,7 +264,9 @@ void LightsAppComponents::handleLightsRetrieve(const LightsRetrieveMessage &mess
   //  qDebug() << "sending response: "<<respMessage.toString() <<" to: "<<fromAddr.toString() <<":"<<header.mReplyPort;
 
     mSystemComponents->mSender->send(fromAddr, header.mReplyPort, respMessage.toData());
+    qDebug() << "reprov:";
     mSystemComponents->mGrandCentral->reprovisionOutputValues();
+    qDebug() << "after reprov:";
 }
 
 void LightsAppComponents::handleRemoteLights(int lightId)
@@ -244,65 +278,91 @@ void LightsAppComponents::handleRemoteLights(int lightId)
     auto database = DatabaseFactory::createDatabaseConnection("lights");
     dbSettings = database->getLightSetting(lightId);
 
-    if(!dbSettings.mIsOn)
+    qDebug() << "light settings: "<<dbSettings.toString();
+
+    switch (dbSettings.mType)
     {
-        switch (dbSettings.mType)
+    case LightControllerType::BASIC:
+    {
+        auto settings = database->getRemoteSwitchSettings(lightId);
+        for(auto & setting: settings)
         {
-        case LightControllerType::BASIC:
-            break;
-        case LightControllerType::DIMM:
-        {
-            auto settings = database->getDimmLightSettings(lightId);
-            for(auto & setting: settings)
-            {
-                if(!dbSettings.mIsOn)
-                {
-                    setting.mValue = 0; //value 0 is OFF on PWM
-                }
-                else
-                {
-                    setting.mValue = gammaCorrect(dbSettings.mDimm);
-                }
-
-                LeoSetMessage message(setting);
-                auto messageStr = message.serialize().toUtf8()+',';
-
-                qDebug() << "remote lights message: "<<messageStr <<" to controller: "<<setting.mControllerIpAddr <<":"<< setting.mControllerPort;
-
-                mSystemComponents->mSender->sendRaw(QHostAddress(setting.mControllerIpAddr), setting.mControllerPort, messageStr);
-            }
-        }
-            break;
-        case LightControllerType::COLOR:
-        {
-            auto settings = database->getRGBSetting(lightId);
-
             if(!dbSettings.mIsOn)
             {
-                settings.mRedValue = 0; //value 0 is OFF for PWM
-                settings.mGreenValue = 0;
-                settings.mBlueValue = 0;
+               setting.mValue = 1; //HIGH state means OFF
+            }
+            else
+            {
+               setting.mValue = 0;
             }
 
-            for(const auto& setting: settings.mRedPins)
-            {
-                LeoSetMessage message(setting);
-                mSystemComponents->mSender->sendRaw(QHostAddress(setting.mControllerIpAddr), setting.mControllerPort, message.serialize().toUtf8());
-            }
+            LeoSetMessage message(setting);
+            qDebug() << "remote lights message: "<<QString(message.serialize()) <<" to controller: "<<setting.mControllerIpAddr <<":"<< setting.mControllerPort;
 
-            for(const auto& setting: settings.mGreenPins)
-            {
-                LeoSetMessage message(setting);
-                mSystemComponents->mSender->sendRaw(QHostAddress(setting.mControllerIpAddr), setting.mControllerPort, message.serialize().toUtf8());
-            }
-
-            for(const auto& setting: settings.mBluePins)
-            {
-                LeoSetMessage message(setting);
-                mSystemComponents->mSender->sendRaw(QHostAddress(setting.mControllerIpAddr), setting.mControllerPort, message.serialize().toUtf8());
-            }
+            mSystemComponents->mSender->sendRaw(QHostAddress(setting.mControllerIpAddr), setting.mControllerPort, message.serialize());
         }
-            break;
+    }
+        break;
+    case LightControllerType::DIMM:
+    {
+        auto settings = database->getDimmLightSettings(lightId);
+        for(auto & setting: settings)
+        {
+            if(!dbSettings.mIsOn)
+            {
+                setting.mValue = 0; //value 0 is OFF on PWM
+            }
+            else
+            {
+                setting.mValue = gammaCorrect(dbSettings.mDimm);
+            }
+
+            LeoSetMessage message(setting);
+
+            qDebug() << "remote lights message: "<<QString(message.serialize()) <<" to controller: "<<setting.mControllerIpAddr <<":"<< setting.mControllerPort;
+
+            mSystemComponents->mSender->sendRaw(QHostAddress(setting.mControllerIpAddr), setting.mControllerPort, message.serialize());
         }
+    }
+        break;
+    case LightControllerType::COLOR:
+    {
+        auto settings = database->getRGBSetting(lightId);
+
+        if(!dbSettings.mIsOn)
+        {
+            qDebug() << "remote color light setting OFF";
+
+            settings.mRedValue = 0; //value 0 is OFF for PWM
+            settings.mGreenValue = 0;
+            settings.mBlueValue = 0;
+        }
+        else
+        {
+            settings.setRGBFromColor(dbSettings.mColor);
+        }
+
+        for(const auto& setting: settings.getRedPins())
+        {            
+            LeoSetMessage message(setting);
+            qDebug() << "remote lights message for RED: "<<message.serialize() <<" to controller: "<<setting.mControllerIpAddr <<":"<< setting.mControllerPort;
+            mSystemComponents->mSender->sendRaw(QHostAddress(setting.mControllerIpAddr), setting.mControllerPort, message.serialize());
+        }
+
+        for(const auto& setting: settings.getGreenPins())
+        {            
+            LeoSetMessage message(setting);
+            qDebug() << "remote lights message for GREEN: "<<message.serialize() <<" to controller: "<<setting.mControllerIpAddr <<":"<< setting.mControllerPort;
+            mSystemComponents->mSender->sendRaw(QHostAddress(setting.mControllerIpAddr), setting.mControllerPort, message.serialize());
+        }
+
+        for(const auto& setting: settings.getBluePins())
+        {
+            LeoSetMessage message(setting);
+            qDebug() << "remote lights message for BLUE: "<<message.serialize() <<" to controller: "<<setting.mControllerIpAddr <<":"<< setting.mControllerPort;
+            mSystemComponents->mSender->sendRaw(QHostAddress(setting.mControllerIpAddr), setting.mControllerPort, message.serialize());
+        }
+    }
+        break;
     }
 }

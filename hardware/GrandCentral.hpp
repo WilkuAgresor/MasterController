@@ -1,6 +1,7 @@
 #pragma once
 
 #include <QObject>
+#include <hardware/ControllerInfo.hpp>
 #include <hardware/Pin.hpp>
 #include <hardware/PinMapping.hpp>
 #include <serialListener/SerialConnection.hpp>
@@ -28,8 +29,12 @@ public:
     void setInitialized(bool value);
     bool isInitialized();
 
+
+
 signals:
     void inputPinStateChangeNotif(PinIdentifier id, bool state);
+public slots:
+    void handleSessionIdChange(quint32 sessionId);
 
 private:
     void resetGrandCentralSettings();
@@ -43,6 +48,8 @@ private:
     Components* mComponents;
 
     SerialConnection* mSerialConnection;
+
+    std::mutex mDbMutex;
 
     bool mIsInitialized = true;
 };

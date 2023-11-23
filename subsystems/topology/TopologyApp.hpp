@@ -1,8 +1,7 @@
 #include <QString>
 #include <QObject>
 #include <components.hpp>
-#include <subsystems/AppBase.hpp>
-
+#include <../common/subsystems/AppBase.hpp>
 
 class TopologyApp : public AppBase
 {
@@ -14,4 +13,8 @@ public:
     void run();
 
     int i = 0;
+
+signals:
+    void hardwareReprovisionNotif(ControllerInfo controllerInfo);
+
 };

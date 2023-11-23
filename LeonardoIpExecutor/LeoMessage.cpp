@@ -8,21 +8,29 @@ LeoMessage::LeoMessage(const QString& message)
 
 LeoMessage::LeoMessage(LeoMessageType type)
 {
-    if(type == LeoMessageType::REPLY)
+    switch(type)
     {
-        mCsvData.push_back("sts");
-    }
-    else if (type == LeoMessageType::RETRIEVE_REPLY )
-    {
-        mCsvData.push_back("rtv");
-    }
-    else if (type == LeoMessageType::SET_VAL )
-    {
-        mCsvData.push_back("setVal");
-    }
-    else if (type == LeoMessageType::GET_VAL )
-    {
-        mCsvData.push_back("getVal");
+    case LeoMessageType::REPLY:
+            mCsvData.push_back("sts");
+        break;
+    case LeoMessageType::RETRIEVE_REPLY:
+            mCsvData.push_back("rtv");
+        break;
+    case LeoMessageType::SET_VAL:
+            mCsvData.push_back("setVal");
+        break;
+    case LeoMessageType::GET_VAL:
+            mCsvData.push_back("getVal");
+        break;
+    case LeoMessageType::GET_SESSION_ID:
+            mCsvData.push_back("getSessionId");
+        break;
+    case LeoMessageType::SESSION_ID_REPLY:
+            mCsvData.push_back("sessionId");
+        break;
+    default:
+        qDebug() <<"Unsupported LeoMessageType";
+        break;
     }
 }
 
@@ -45,21 +53,27 @@ LeoMessageType LeoMessage::getType() const
     {
         return LeoMessageType::GET_VAL;
     }
+    else if(first == "getSessionId")
+    {
+        return LeoMessageType::GET_SESSION_ID;
+    }
+    else if(first == "sessionId")
+    {
+        return LeoMessageType::SESSION_ID_REPLY;
+    }
+
     return LeoMessageType::NONE;
 }
 
-QString LeoMessage::serialize()
+QByteArray LeoMessage::serialize()
 {
     QString message;
     for(int i=0; i < mCsvData.size(); i++)
     {
         message.append(mCsvData[i]);
-        if(i != mCsvData.size()-1)
-        {
-            message.append(',');
-        }
-    }
-    return message;
+        message.append(',');
+    }    
+    return message.toUtf8();
 }
 
 LeoSetMessage::LeoSetMessage(const QString &message)
@@ -85,7 +99,7 @@ LeoSetMessage::LeoSetMessage(int expander, int port, int val)
     mCsvData.push_back(QString::number(val));
 }
 
-LeoSetMessage::LeoSetMessage(const RemotePwmSetting& setting)
+LeoSetMessage::LeoSetMessage(const RemotePinSetting& setting)
     : LeoSetMessage(setting.mPin.mExpanderId, setting.mPin.mPinId, setting.mValue)
 {
 
@@ -172,4 +186,35 @@ int LeoRetrieveReplyMessage::getStatus() const
 int LeoRetrieveReplyMessage::getValue() const
 {
     return mValue;
+}
+
+LeoGetSessionIdMessage::LeoGetSessionIdMessage(const QString &message)
+    : LeoMessage(message)
+{
+    if(getType() != LeoMessageType::GET_SESSION_ID)
+    {
+        qWarning() << "INVALID message type for Leo GetSessionId message";
+    }
+}
+
+LeoGetSessionIdMessage::LeoGetSessionIdMessage()
+    : LeoMessage(LeoMessageType::GET_SESSION_ID)
+{
+}
+
+LeoSessionIdReplyMessage::LeoSessionIdReplyMessage(const QString &message)
+    : LeoMessage(message)
+{
+    mSessionId = mCsvData[1].toUInt();
+}
+
+LeoSessionIdReplyMessage::LeoSessionIdReplyMessage(std::uint32_t sessionId)
+    : LeoMessage(LeoMessageType::SESSION_ID_REPLY), mSessionId(sessionId)
+{
+    mCsvData.push_back(QString::number(sessionId));
+}
+
+std::uint32_t LeoSessionIdReplyMessage::getSessionId()
+{
+    return mSessionId;
 }

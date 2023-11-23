@@ -1,9 +1,9 @@
 #pragma once
 #include <hardware/PinIdentifier.hpp>
 
-int gammaCorrect(int value);
+int gammaCorrect(int value, bool percentage = true);
 
-struct RemotePwmSetting
+struct RemotePinSetting
 {
     QString mControllerIpAddr;
     int mControllerPort;
@@ -20,9 +20,14 @@ struct RGBSetting
     int mGreenValue = 0;
     int mBlueValue = 0;
 
-    std::vector<RemotePwmSetting> mRedPins;
-    std::vector<RemotePwmSetting> mGreenPins;
-    std::vector<RemotePwmSetting> mBluePins;
+    std::vector<RemotePinSetting> getRedPins();
+    std::vector<RemotePinSetting> getGreenPins();
+    std::vector<RemotePinSetting> getBluePins();
+
+
+    std::vector<RemotePinSetting> mRedPins;
+    std::vector<RemotePinSetting> mGreenPins;
+    std::vector<RemotePinSetting> mBluePins;
 };
 
 // Gamma brightness lookup table <https://victornpb.github.io/gamma-table-generator>

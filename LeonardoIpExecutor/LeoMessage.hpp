@@ -8,7 +8,9 @@ enum class LeoMessageType{
     REPLY,
     RETRIEVE_REPLY,
     SET_VAL,
-    GET_VAL
+    GET_VAL,
+    GET_SESSION_ID,
+    SESSION_ID_REPLY
 };
 
 class LeoMessage
@@ -19,7 +21,7 @@ public:
 
     LeoMessageType getType() const;
 
-    QString serialize();
+    QByteArray serialize();
 
     QStringList mCsvData;
 };
@@ -30,7 +32,7 @@ class LeoSetMessage : public LeoMessage
 public:
     LeoSetMessage(const QString& message);
     LeoSetMessage(int expander, int port, int val);
-    LeoSetMessage(const RemotePwmSetting &setting);
+    LeoSetMessage(const RemotePinSetting &setting);
 
     void setValue(int val);
 
@@ -64,7 +66,6 @@ private:
     int mStatus = -1;
 };
 
-
 class LeoRetrieveReplyMessage : public LeoMessage
 {
 public:
@@ -77,4 +78,24 @@ public:
 private:
     int mStatus = -1;
     int mValue = -1;
+};
+
+// --------------- SESSION ID MESSAGE
+
+class LeoGetSessionIdMessage: public LeoMessage
+{
+public:
+    LeoGetSessionIdMessage(const QString& message);
+    LeoGetSessionIdMessage();
+};
+
+class LeoSessionIdReplyMessage: public LeoMessage
+{
+public:
+    LeoSessionIdReplyMessage(const QString& message);
+    LeoSessionIdReplyMessage(std::uint32_t sessionId);
+
+    std::uint32_t getSessionId();
+private:
+    std::uint32_t mSessionId = 0;
 };

@@ -3,12 +3,13 @@
 #include <QObject>
 #include <database/database.hpp>
 #include <../common/sender.hpp>
-#include <subsystems/heating/HeatingpAppComponents.hpp>
+#include <subsystems/heating/HeatingAppComponents.hpp>
 #include <subsystems/lights/LightsAppComponents.hpp>
 #include <hardware/GrandCentral.hpp>
 
 class Components : public QObject
 {
+    Q_OBJECT
 public:
     Components(QObject* parent);
     ~Components() = default;
@@ -20,7 +21,9 @@ public:
     LightsAppComponents* mLightsComponents;
 
     GrandCentral* mGrandCentral;
-//    SerialConnection* mSerialConnection;
 
+    void sendHardwareReprovisionNotif(ControllerInfo controllerInfo);
 
+signals:
+    void hardwareReprovisionNotif(ControllerInfo controllerInfo);
 };

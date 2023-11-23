@@ -418,8 +418,6 @@ LightControllerSettings Database::getLightSetting(int id)
     lightSettings.mGuiSettings.mY = query.value(idY).toInt();
     lightSettings.mGuiSettings.mPlane = query.value(idPlane).toInt();
 
-    qDebug() << "light settings: "<<lightSettings.toString();
-
     return lightSettings;
 
 }
@@ -474,10 +472,10 @@ std::vector<LightControllerSettings> Database::getLightSettings()
     return lightControllers;
 }
 
-std::vector<RemotePwmSetting> Database::getDimmLightSettings(int lightId)
+std::vector<RemotePinSetting> Database::getDimmLightSettings(int lightId)
 {
     std::lock_guard<std::recursive_mutex> _lock(mMutex);
-    std::vector<RemotePwmSetting> remoteSettings;
+    std::vector<RemotePinSetting> remoteSettings;
 
     QString queryString = R"(select RemoteExpanders.pinId, LightsControl.LightsControlDimm, Controllers.ipAddr, Controllers.port from RemoteExpanders
                           LEFT JOIN RemoteDimmLights ON RemoteDimmLights.port = RemoteExpanders.id
@@ -496,11 +494,42 @@ std::vector<RemotePwmSetting> Database::getDimmLightSettings(int lightId)
 
     while(query.next())
     {
-        RemotePwmSetting setting;
+        RemotePinSetting setting;
         setting.mControllerIpAddr = query.value(idControllerIp).toString();
         setting.mControllerPort = query.value(idControllerPort).toInt();
         setting.mPin = PinIdentifier(query.value(idPinId).toString());
         setting.mValue = query.value(idDimm).toInt();
+        remoteSettings.push_back(setting);
+    }
+    return remoteSettings;
+}
+
+std::vector<RemotePinSetting> Database::getRemoteSwitchSettings(int lightId)
+{
+    std::lock_guard<std::recursive_mutex> _lock(mMutex);
+    std::vector<RemotePinSetting> remoteSettings;
+
+    QString queryString = R"(select RemoteExpanders.pinId, Controllers.ipAddr, Controllers.port from RemoteExpanders
+                          LEFT JOIN RemoteSwitch ON RemoteSwitch.port = RemoteExpanders.id
+                          LEFT JOIN LightsControl ON LightsControl.LightsControlId = RemoteSwitch.lightId
+                          LEFT JOIN Controllers ON RemoteExpanders.controller = Controllers.name
+                          WHERE RemoteSwitch.lightId =
+                          )";
+    queryString.append(QString::number(lightId));
+
+    auto query = executeSqlQuery(queryString);
+
+    int idControllerIp = query.record().indexOf("ipAddr");
+    int idControllerPort = query.record().indexOf("port");
+    int idPinId = query.record().indexOf("pinId");
+
+    while(query.next())
+    {
+        RemotePinSetting setting;
+        setting.mControllerIpAddr = query.value(idControllerIp).toString();
+        setting.mControllerPort = query.value(idControllerPort).toInt();
+        setting.mPin = PinIdentifier(query.value(idPinId).toString());
+
         remoteSettings.push_back(setting);
     }
     return remoteSettings;
@@ -530,7 +559,7 @@ RGBSetting Database::getRGBSetting(int lightId)
 
         while(query.next())
         {
-            RemotePwmSetting setting;
+            RemotePinSetting setting;
             setting.mControllerIpAddr = query.value(idControllerIp).toString();
             setting.mControllerPort = query.value(idControllerPort).toInt();
             setting.mPin = PinIdentifier(query.value(idPinId).toString());
@@ -555,7 +584,7 @@ RGBSetting Database::getRGBSetting(int lightId)
 
         while(query.next())
         {
-            RemotePwmSetting setting;
+            RemotePinSetting setting;
             setting.mControllerIpAddr = query.value(idControllerIp).toString();
             setting.mControllerPort = query.value(idControllerPort).toInt();
             setting.mPin = PinIdentifier(query.value(idPinId).toString());
@@ -580,7 +609,7 @@ RGBSetting Database::getRGBSetting(int lightId)
 
         while(query.next())
         {
-            RemotePwmSetting setting;
+            RemotePinSetting setting;
             setting.mControllerIpAddr = query.value(idControllerIp).toString();
             setting.mControllerPort = query.value(idControllerPort).toInt();
             setting.mPin = PinIdentifier(query.value(idPinId).toString());

@@ -4,11 +4,13 @@ QT += serialport
 
 CONFIG += c++14
 
+
 # The following define makes your compiler emit warnings if you use
 # any feature of Qt which as been marked deprecated (the exact warnings
 # depend on your compiler). Please consult the documentation of the
 # deprecated API in order to know how to port your code away from it.
 DEFINES += QT_DEPRECATED_WARNINGS
+
 
 # You can also make your code fail to compile if you use deprecated APIs.
 # In order to do so, uncomment the following line.
@@ -18,6 +20,7 @@ DEFINES += QT_DEPRECATED_WARNINGS
 SOURCES += \
     ../common/NetworkPortPool.cpp \
     ../common/messages/partedMessage.cpp \
+    ../common/subsystems/AppBase.cpp \
     ../common/subsystems/heating/HeatingRetrieveMessage.cpp \
     ../common/subsystems/heating/HeatingRetrieveStatistics.cpp \
     ../common/subsystems/heating/HeatingZoneSettings.cpp \
@@ -49,8 +52,7 @@ SOURCES += \
     ../common/json/jsonSerialization.cpp \
     ../common/messages/replyMessage.cpp \
     serialListener/SerialConnection.cpp \
-    subsystems/AppBase.cpp \
-    subsystems/heating/HeatingpAppComponents.cpp \
+    subsystems/heating/HeatingAppComponents.cpp \
     subsystems/heating/SensorDatabase.cpp \
     subsystems/lights/LightsApp.cpp \
     subsystems/lights/LightsAppComponents.cpp \
@@ -82,6 +84,7 @@ else: unix:!android: target.path = /opt/$${TARGET}/bin
 HEADERS += \
     ../common/NetworkPortPool.hpp \
     ../common/messages/partedMessage.hpp \
+    ../common/subsystems/AppBase.hpp \
     ../common/subsystems/heating/HeatingRetrieveMessage.hpp \
     ../common/subsystems/heating/HeatingRetrieveStatistics.hpp \
     ../common/subsystems/heating/HeatingZoneSettings.hpp \
@@ -98,6 +101,7 @@ HEADERS += \
     database/ScheduleDatabase.hpp \
     database/database.hpp \
     database/devicedb.hpp \
+    hardware/ControllerInfo.hpp \
     hardware/GrandCentral.hpp \
     hardware/Pin.hpp \
     hardware/PinIdentifier.hpp \
@@ -121,8 +125,7 @@ HEADERS += \
     ../common/CommonDefinitions.hpp \
     components.hpp \
     serialListener/SerialConnection.hpp \
-    subsystems/AppBase.hpp \
-    subsystems/heating/HeatingpAppComponents.hpp \
+    subsystems/heating/HeatingAppComponents.hpp \
     subsystems/heating/SensorDatabase.hpp \
     subsystems/lights/LightsApp.hpp \
     subsystems/lights/LightsAppComponents.hpp \

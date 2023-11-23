@@ -3,9 +3,8 @@
 #include <QString>
 #include <QObject>
 #include <QRunnable>
-#include <subsystems/heating/HeatingpAppComponents.hpp>
-#include <subsystems/AppBase.hpp>
-
+#include <subsystems/heating/HeatingAppComponents.hpp>
+#include <../common/subsystems/AppBase.hpp>
 
 class HeatingApp : public AppBase
 {
