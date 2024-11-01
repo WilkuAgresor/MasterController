@@ -33,7 +33,7 @@ void TopologyApp::run()
     {
         for(auto& controller: mComponents->mControllers)
         {
-            if( controller.type == ControllerInfo::Type::TERMINALv1)
+            if(controller.type == ControllerInfo::Type::TERMINALv1)
             {
                 qDebug() << "TopologyApp: sending checkin request " << controller.ipAddr;
                 TopologyRequestCheckinMessage message;
@@ -48,7 +48,7 @@ void TopologyApp::run()
             {
                 qDebug() << "TopologyApp: sending checkin request for ArdLeo "<<controller.ipAddr;
                 LeoGetSessionIdMessage message;
-                auto response = mComponents->mSender->sendReceiveRaw(controller.getIpAddress(), controller.port, message.serialize(), 200);
+                auto response = mComponents->mSender->sendReceiveRaw(controller.getIpAddress(), controller.port, message.serialize(), 300);
 
                 if(response.isEmpty())
                 {

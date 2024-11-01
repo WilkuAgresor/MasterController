@@ -37,6 +37,7 @@ public:
     void terminateAll();
 
     void setDefaultOutputState(const PinIdentifier& output, bool value);
+    void setInputPinTypeMirror(const PinIdentifier &output);
 
     void flashInit();
     void flashSave();
@@ -62,5 +63,5 @@ private:
     Components* mComponents;
     QString mSerialDevice;
     int mBaudRate = 74880;
-    QSerialPort* mPort;
+    std::unique_ptr<QSerialPort> mPort;
 };

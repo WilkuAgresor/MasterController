@@ -81,7 +81,7 @@ std::vector<PinIdentifier> PinMapping::splitDbEntryToPinIds(const QString &entry
 
     std::vector<PinIdentifier> pinIds;
 
-    auto entries = entry.split("**", QString::SkipEmptyParts);
+    auto entries = entry.split("**", Qt::SkipEmptyParts);
 
     for(auto& entry: entries)
     {

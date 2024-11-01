@@ -31,13 +31,14 @@ LogicState boolToLogicState(bool state);
 enum class PinType : int
 {
     UNUSED = 0,
-    INPUT_PULLUP = 1,
-    INPUT_NO_PULLUP = 2,
+    INPUT_PULLUP = 1, //impulse (stateless) switch - inverts state on click
+    INPUT_NO_PULLUP = 2, //impulse (stateless) switch - inverts state on click
     OUTPUT_HIGH = 3,
     OUTPUT_LOW = 4,
     VIRTUAL_INPUT = 5,
-    VIRTUAL_OUTPUT = 6,
-    PWM_OUTPUT = 7
+    VIRTUAL_OUTPUT = 6, //nic nie robi, do usuniecia
+    INPUT_PULLUP_MIRROR = 7, //mirror (stateful) switch - notifies explicit changes
+    INPUT_NO_PULLUP_MIRROR = 8 //mirror (stateful) switch - notifies explicit changes
 };
 
 struct PinIdentifier

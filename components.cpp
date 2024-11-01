@@ -9,7 +9,7 @@ Components::Components(QObject *parent)
         auto mainDb = DatabaseFactory::createDatabaseConnection();
         mControllers = mainDb->getControllers();
     }
-    mHeatingComponents = std::unique_ptr<HeatingAppComponents>(new HeatingAppComponents(this));
+    mHeatingComponents = new HeatingAppComponents(this, this);
     mLightsComponents = new LightsAppComponents(this, this);
 }
 

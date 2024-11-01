@@ -10,7 +10,8 @@ enum class LeoMessageType{
     SET_VAL,
     GET_VAL,
     GET_SESSION_ID,
-    SESSION_ID_REPLY
+    SESSION_ID_REPLY,
+    OPENTHERM
 };
 
 class LeoMessage

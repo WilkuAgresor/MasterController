@@ -4,9 +4,10 @@
 #include <database/devicedb.hpp>
 #include "../common/json/deviceJson.hpp"
 #include <../common/subsystems/heating/HeatingZoneSettings.hpp>
+#include <../common/subsystems/heating/BoilerSettingsMessage.hpp>
 #include <../common/subsystems/lights/LightControllerSettings.hpp>
 #include <hardware/PinMapping.hpp>
-#include <hardware/ControllerInfo.hpp>
+#include <../common/subsystems/status/ControllerInfo.hpp>
 #include <subsystems/heating/SensorData.hpp>
 #include <LeonardoIpExecutor/RemoteRGBSetting.hpp>
 
@@ -21,6 +22,8 @@ public:
     ControllerInfo getControllerInfo(const QString& name);
     std::vector<ControllerInfo> getControllers();
     void updateControllerCurKey(const QString &deviceName, uint64_t newKey);
+    void updateControllerTryContactTime(const QString& deviceName);
+    void updateControllerSuccessContactTime(const QString& deviceName);
     void updateControllerStatus(const QString& deviceName, ControllerInfo::Status status);
     std::vector<QString> getControllerNames();
 
@@ -40,6 +43,11 @@ public:
     std::vector<HeatZoneSetting> getHeatZoneSettings(int profileId);
     HeatZoneSetting getHeatZoneSettings(const QString &profileName, int zoneId);
     HeatZoneSetting getHeatZoneSettings(int profileId, int zoneId);
+
+    void createBoilerSettingsTable();
+    std::optional<BoilerSettingsPayload> getBoilerSettings();
+    std::optional<int> getBoilerSettingByName(const QString& name);
+    void setBoilerSettingByName(const QString& name, int value);
 
     std::vector<int> getHeatingZoneIds();
 
@@ -83,7 +91,6 @@ public:
     std::vector<PinMapping> getGrandCentralPinGroupings();
     std::vector<std::pair<PinIdentifier, PinType> > getGrandCentralPins();
 
-
 private:
     QSqlQuery executeSqlQuery(const QString& query);
 
@@ -97,6 +104,7 @@ class DatabaseFactory
 public:
     static std::unique_ptr<Database> createDatabaseConnection(const QString& moduleName = "")
     {
+        qDebug() << "creating database connection:"<< moduleName;
         auto database = std::unique_ptr<Database>(new Database(moduleName));
         return database;
     }

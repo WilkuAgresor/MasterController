@@ -1,8 +1,9 @@
 QT += quick
 QT += sql
 QT += serialport
+QT += core5compat
 
-CONFIG += c++14
+CONFIG += c++20
 
 
 # The following define makes your compiler emit warnings if you use
@@ -21,14 +22,17 @@ SOURCES += \
     ../common/NetworkPortPool.cpp \
     ../common/messages/partedMessage.cpp \
     ../common/subsystems/AppBase.cpp \
+    ../common/subsystems/heating/BoilerSettingsMessage.cpp \
     ../common/subsystems/heating/HeatingRetrieveMessage.cpp \
     ../common/subsystems/heating/HeatingRetrieveStatistics.cpp \
     ../common/subsystems/heating/HeatingZoneSettings.cpp \
     ../common/subsystems/lights/LightControllerSettings.cpp \
     ../common/subsystems/lights/LightsRetrieveMessage.cpp \
     ../common/subsystems/schedule/ScheduleEventTypes.cpp \
+    ../common/subsystems/status/ControllerStatusMessage.cpp \
     ../common/subsystems/topology/topologyMessages.cpp \
     LeonardoIpExecutor/LeoMessage.cpp \
+    LeonardoIpExecutor/OpenthermMessages.cpp \
     LeonardoIpExecutor/RemoteRGBSetting.cpp \
     database/ScheduleDatabase.cpp \
     hardware/GrandCentral.cpp \
@@ -38,7 +42,6 @@ SOURCES += \
         main.cpp \
     database/database.cpp \
     mainapplication.cpp \
-    ../common/simplecrypt/simplecrypt.cpp \
     ../common/json/deviceJson.cpp \
     ../common/json/commonEntity.cpp \
     ../common/sender.cpp \
@@ -85,6 +88,7 @@ HEADERS += \
     ../common/NetworkPortPool.hpp \
     ../common/messages/partedMessage.hpp \
     ../common/subsystems/AppBase.hpp \
+    ../common/subsystems/heating/BoilerSettingsMessage.hpp \
     ../common/subsystems/heating/HeatingRetrieveMessage.hpp \
     ../common/subsystems/heating/HeatingRetrieveStatistics.hpp \
     ../common/subsystems/heating/HeatingZoneSettings.hpp \
@@ -93,21 +97,22 @@ HEADERS += \
     ../common/subsystems/lights/LightsRetrieveMessage.hpp \
     ../common/subsystems/schedule/ScheduleDictionary.hpp \
     ../common/subsystems/schedule/ScheduleEventTypes.hpp \
+    ../common/subsystems/status/ControllerInfo.hpp \
+    ../common/subsystems/status/ControllerStatusMessage.hpp \
     ../common/subsystems/topology/topologyMessages.hpp \
     LeonardoIpExecutor/LeoMessage.hpp \
+    LeonardoIpExecutor/OpenthermMessages.hpp \
     LeonardoIpExecutor/RemoteRGBSetting.hpp \
     connection/connectiontimer.hpp \
     connection/connectionmonitor.hpp \
     database/ScheduleDatabase.hpp \
     database/database.hpp \
     database/devicedb.hpp \
-    hardware/ControllerInfo.hpp \
     hardware/GrandCentral.hpp \
     hardware/Pin.hpp \
     hardware/PinIdentifier.hpp \
     hardware/PinMapping.hpp \
     mainapplication.hpp \
-    ../common/simplecrypt/simplecrypt.hpp \
     ../common/json/deviceJson.hpp \
     ../common/json/commonEntity.hpp \
     ../common/sender.hpp \

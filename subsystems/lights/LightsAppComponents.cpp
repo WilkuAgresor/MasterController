@@ -12,12 +12,12 @@ LightsAppComponents::LightsAppComponents(QObject *parent, Components *components
         std::unique_lock<std::mutex> lock(mDbMutex);
         auto database = DatabaseFactory::createDatabaseConnection("lights");
         mLightToGroupingMap = database->getLightsGroupingMap();
-        lock.unlock();
-
-        QObject::connect(mSystemComponents->mGrandCentral, SIGNAL(inputPinStateChangeNotif(PinIdentifier, bool)),
-                         this, SLOT(handleStateChanged(PinIdentifier, bool)));
-        QObject::connect(mSystemComponents, SIGNAL(hardwareReprovisionNotif(ControllerInfo)), this, SLOT(handleHardwareReprovisionNotif(ControllerInfo)));
     }
+
+    QObject::connect(mSystemComponents->mGrandCentral, SIGNAL(inputPinStateChangeNotif(PinIdentifier, bool)),
+                     this, SLOT(handleStateChanged(PinIdentifier, bool)));
+    QObject::connect(mSystemComponents, SIGNAL(hardwareReprovisionNotif(ControllerInfo)), this, SLOT(handleHardwareReprovisionNotif(ControllerInfo)));
+
 
 //    while(!mSystemComponents->mGrandCentral->isInitialized())
 //    {
@@ -98,19 +98,20 @@ void LightsAppComponents::handleStateChanged(PinIdentifier pinId, bool state)
     auto currentLogicState = boolToLogicState(state);
 
 
-    for(const auto& pair: mLightToGroupingMap)
+    for(const auto& [lightId, hardwareGroupId]: mLightToGroupingMap)
     {
-        if(pair.second == pinGroupId)
+        if(hardwareGroupId == pinGroupId)
         {
             bool stateChanged = false;
-            qDebug() << "output pin of light id: "<<pair.first;
+            qDebug() << "output pin of light id: "<<lightId;
+
             LightControllerSettings dbSettings;
 
             {
                 std::lock_guard<std::mutex> _lock(mDbMutex);
 
                 auto database = DatabaseFactory::createDatabaseConnection("lights");
-                dbSettings = database->getLightSetting(pair.first);
+                dbSettings = database->getLightSetting(lightId);
 
                 qDebug() << "db state: "<<dbSettings.mIsOn;
                 auto dbLogicState = boolToLogicState(dbSettings.mIsOn);
@@ -119,11 +120,11 @@ void LightsAppComponents::handleStateChanged(PinIdentifier pinId, bool state)
                 {
                     stateChanged = true;
                     qDebug() << "STATE CHANGE!";
-                    database->setLightsIsOn(pair.first, logicStateToBool(currentLogicState));
+                    database->setLightsIsOn(lightId, logicStateToBool(currentLogicState));
                 }
 
                 LightControllerSettings settings;
-                settings.mId = pair.first;
+                settings.mId = lightId;
                 settings.setIsOn(state);
 
                 LightSettingsPayload payload;
@@ -136,11 +137,8 @@ void LightsAppComponents::handleStateChanged(PinIdentifier pinId, bool state)
 
             if(stateChanged)
             {
-                qDebug() << "remote light state change!";
-                handleRemoteLights(pair.first);
+                handleRemoteLights(lightId);
             }
-
-            break;
         }
     }
 }
@@ -156,10 +154,11 @@ void LightsAppComponents::handleHardwareReprovisionNotif(ControllerInfo controll
     switch(controllerInfo.type)
     {
     case ControllerInfo::Type::USB_SERIAL_GRAND_CENTRAL:
+        qDebug() <<"Reprovision grand central";
+
         for(auto& light: lightSettings)
         {
             LogicState state = boolToLogicState(light.mIsOn); /*light.mIsOn ? LogicState::ON : LogicState::OFF;*/
-
             mSystemComponents->mGrandCentral->setInputState(database->getLightGroupingId(light.mId), state);
         }
         break;
@@ -289,11 +288,11 @@ void LightsAppComponents::handleRemoteLights(int lightId)
         {
             if(!dbSettings.mIsOn)
             {
-               setting.mValue = 1; //HIGH state means OFF
+               setting.mValue = setting.mOffSetting;
             }
             else
             {
-               setting.mValue = 0;
+               setting.mValue = setting.mOnSetting;
             }
 
             LeoSetMessage message(setting);

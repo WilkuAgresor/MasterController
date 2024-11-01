@@ -2,6 +2,7 @@
 
 #include <hardware/PinIdentifier.hpp>
 #include <QDebug>
+#include <QObject>
 
 class SerialConnection;
 

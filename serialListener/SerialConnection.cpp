@@ -3,11 +3,14 @@
 #include <QtConcurrent/QtConcurrent>
 #include <components.hpp>
 
+#include <thread>
+#include <chrono>
+
 SerialConnection::SerialConnection(Components *components)
     : QObject(components)
     , mComponents(components)
 {
-    mPort = new QSerialPort(this);
+    mPort = std::make_unique<QSerialPort>();
 }
 
 bool SerialConnection::initialize()
@@ -45,6 +48,9 @@ bool SerialConnection::initialize()
 bool SerialConnection::connect()
 {
     std::unique_lock<std::mutex> lock(mReceiveMutex);
+
+    mPort.reset(new QSerialPort());
+
     auto ports = QSerialPortInfo::availablePorts();
     for(auto& port: ports)
     {
@@ -57,8 +63,8 @@ bool SerialConnection::connect()
             if(mPort->open(QIODevice::ReadWrite))
             {
                 qDebug() << "serial port open";
-                QObject::connect(mPort, SIGNAL(readyRead()), this, SLOT(handleReadyRead()));
-                QObject::connect(mPort, SIGNAL(errorOccurred(QSerialPort::SerialPortError)), this, SLOT(handleError(QSerialPort::SerialPortError)));
+                QObject::connect(mPort.get(), SIGNAL(readyRead()), this, SLOT(handleReadyRead()));
+                QObject::connect(mPort.get(), SIGNAL(errorOccurred(QSerialPort::SerialPortError)), this, SLOT(handleError(QSerialPort::SerialPortError)));
 
                 qDebug() << "receive serial clear mutex";
                 lock.unlock();
@@ -66,7 +72,7 @@ bool SerialConnection::connect()
                 auto sessionIdResult =  getSessionId();
                 if(sessionIdResult)
                 {
-                    QtConcurrent::run([this]{
+                    auto runResult = QtConcurrent::run([this]{
                         int counter = 0;
                         while(mSessionId == 0)
                         {
@@ -80,7 +86,7 @@ bool SerialConnection::connect()
                         }
 
                         qDebug() << "Session ID: "<< mSessionId;
-//                        serialConnected();
+                        serialConnected();
                         qDebug() << "finished processing serial connection";
                     });
 
@@ -134,7 +140,7 @@ try
     qDebug() << "incoming command: "<<command;
 
 
-    auto args = command.split(",", QString::SkipEmptyParts);
+    auto args = command.split(",", Qt::SkipEmptyParts);
 
     qDebug() << "args: "<<args;
 
@@ -382,6 +388,20 @@ void SerialConnection::setDefaultOutputState(const PinIdentifier &output, bool v
     sendCommand(command);
 }
 
+void SerialConnection::setInputPinTypeMirror(const PinIdentifier& output)
+{
+    QString command;
+    command.append("<");
+    command.append("setInputPinType");
+    command.append(",");
+    command.append(output.toStringSerial());
+    command.append(",");
+    command.append(QString::number(1));
+    command.append(">");
+
+    sendCommand(command);
+}
+
 void SerialConnection::flashInit()
 {
     sendCommand("<flashInit>");
@@ -409,7 +429,6 @@ void SerialConnection::reprovisionAllOutputStates()
 
 void SerialConnection::handleReadyRead()
 {
-    qDebug() << "ready read";
     std::unique_lock<std::mutex> lock(mReceiveMutex);
     while(mPort->canReadLine())
     {
@@ -417,7 +436,7 @@ void SerialConnection::handleReadyRead()
 
         qDebug() << "received line: "<<data;
 
-        auto messages = data.split("<", QString::SkipEmptyParts);
+        auto messages = data.split("<", Qt::SkipEmptyParts);
 
         for(auto& message: messages)
         {
@@ -442,9 +461,6 @@ void SerialConnection::handleError(QSerialPort::SerialPortError serialPortError)
     serialDisconnected();
 
     qDebug() << "Serial error occured. Reestablishing connection: "<<serialPortError;
-
-    mPort->disconnect();
-//    mPort = new QSerialPort(this);
 
     while(!connect())
     {

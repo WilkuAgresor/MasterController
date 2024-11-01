@@ -1,9 +1,10 @@
 #include "LeoMessage.hpp"
 #include <QDebug>
+#include <QString>
 
 LeoMessage::LeoMessage(const QString& message)
 {
-    mCsvData = message.split(",", QString::SplitBehavior::SkipEmptyParts);
+    mCsvData = message.split(",", Qt::SkipEmptyParts);
 }
 
 LeoMessage::LeoMessage(LeoMessageType type)
@@ -27,6 +28,9 @@ LeoMessage::LeoMessage(LeoMessageType type)
         break;
     case LeoMessageType::SESSION_ID_REPLY:
             mCsvData.push_back("sessionId");
+        break;
+    case LeoMessageType::OPENTHERM:
+            mCsvData.push_back("opentherm");
         break;
     default:
         qDebug() <<"Unsupported LeoMessageType";
@@ -60,6 +64,10 @@ LeoMessageType LeoMessage::getType() const
     else if(first == "sessionId")
     {
         return LeoMessageType::SESSION_ID_REPLY;
+    }
+    else if(first == "opentherm")
+    {
+        return LeoMessageType::OPENTHERM;
     }
 
     return LeoMessageType::NONE;
@@ -108,7 +116,7 @@ LeoSetMessage::LeoSetMessage(const RemotePinSetting& setting)
 void LeoSetMessage::setValue(int val)
 {
     mVal = val;
-    mCsvData[3] = val;
+    mCsvData[3] = QString::number(val);
 }
 
 LeoGetMessage::LeoGetMessage(const QString &message)

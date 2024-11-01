@@ -77,6 +77,9 @@ ControllerInfo Database::getControllerInfo(const QString &name)
     int idPort      = query.record().indexOf("port");
     int idKey    = query.record().indexOf("key");
     int idType      = query.record().indexOf("type");
+    int idLastSuccessContactTime = query.record().indexOf("lastSuccTime");
+    int idLastTryContactTime = query.record().indexOf("lastTryTime");
+
 
     while(query.next())
     {
@@ -85,6 +88,8 @@ ControllerInfo Database::getControllerInfo(const QString &name)
         info.port = query.value(idPort).toULongLong();
         info.key = query.value(idKey).toULongLong();
         info.type = static_cast<ControllerInfo::Type>(query.value(idType).toInt());
+        info.lastSuccContactTime = QDateTime::fromString(query.value(idLastSuccessContactTime).toString());
+        info.lastTryContactTime = QDateTime::fromString(query.value(idLastTryContactTime).toString());
     }
 
     return info;
@@ -109,6 +114,36 @@ void Database::updateControllerCurKey(const QString& deviceName, uint64_t newKey
 
     QString queryString = "UPDATE Controllers SET key = ";
     queryString.append(QString::number(newKey));
+    queryString.append(R"( WHERE name = ")");
+    queryString.append(deviceName);
+    queryString.append(R"(")");
+
+    executeSqlQuery(queryString);
+}
+
+void Database::updateControllerTryContactTime(const QString& deviceName)
+{
+    std::lock_guard<std::recursive_mutex> _lock(mMutex);
+
+    auto now = QDateTime::currentDateTime();
+
+    QString queryString = "UPDATE Controllers SET lastTryTime = ";
+    queryString.append(now.toString());
+    queryString.append(R"( WHERE name = ")");
+    queryString.append(deviceName);
+    queryString.append(R"(")");
+
+    executeSqlQuery(queryString);
+}
+
+void Database::updateControllerSuccessContactTime(const QString& deviceName)
+{
+    std::lock_guard<std::recursive_mutex> _lock(mMutex);
+
+    auto now = QDateTime::currentDateTime();
+
+    QString queryString = "UPDATE Controllers SET lastSuccTime = ";
+    queryString.append(now.toString());
     queryString.append(R"( WHERE name = ")");
     queryString.append(deviceName);
     queryString.append(R"(")");
@@ -509,7 +544,7 @@ std::vector<RemotePinSetting> Database::getRemoteSwitchSettings(int lightId)
     std::lock_guard<std::recursive_mutex> _lock(mMutex);
     std::vector<RemotePinSetting> remoteSettings;
 
-    QString queryString = R"(select RemoteExpanders.pinId, Controllers.ipAddr, Controllers.port from RemoteExpanders
+    QString queryString = R"(select RemoteExpanders.pinId, Controllers.ipAddr, Controllers.port, RemoteSwitch.onState, RemoteSwitch.offState from RemoteExpanders
                           LEFT JOIN RemoteSwitch ON RemoteSwitch.port = RemoteExpanders.id
                           LEFT JOIN LightsControl ON LightsControl.LightsControlId = RemoteSwitch.lightId
                           LEFT JOIN Controllers ON RemoteExpanders.controller = Controllers.name
@@ -522,6 +557,9 @@ std::vector<RemotePinSetting> Database::getRemoteSwitchSettings(int lightId)
     int idControllerIp = query.record().indexOf("ipAddr");
     int idControllerPort = query.record().indexOf("port");
     int idPinId = query.record().indexOf("pinId");
+    int idOnState = query.record().indexOf("onState");
+    int idOffState = query.record().indexOf("offState");
+
 
     while(query.next())
     {
@@ -529,6 +567,10 @@ std::vector<RemotePinSetting> Database::getRemoteSwitchSettings(int lightId)
         setting.mControllerIpAddr = query.value(idControllerIp).toString();
         setting.mControllerPort = query.value(idControllerPort).toInt();
         setting.mPin = PinIdentifier(query.value(idPinId).toString());
+        setting.mOnSetting = query.value(idOnState).toInt();
+        setting.mOffSetting = query.value(idOffState).toInt();
+
+        qDebug() <<"on state: "<<setting.mOnSetting << " off state: "<<setting.mOffSetting;
 
         remoteSettings.push_back(setting);
     }
@@ -635,6 +677,8 @@ std::map<int,int> Database::getLightsGroupingMap()
     {
         int lightId = query.value(idLightId).toInt();
         int groupingId = query.value(idGroupingId).toInt();
+
+        qDebug() <<"adding mapping <lightId:groupingId>: <"<<lightId<<","<<groupingId<<">";
 
         lightHardwareMapping.emplace(lightId, groupingId);
     }
@@ -919,6 +963,97 @@ HeatZoneSetting Database::getHeatZoneSettings(int profileId, int zoneId)
     auto name = getHeatZoneName(zoneId);
 
     return HeatZoneSetting(temp, isOn, name, id, guiSettings);
+}
+
+std::optional<BoilerSettingsPayload> Database::getBoilerSettings()
+{
+    std::lock_guard<std::recursive_mutex> _lock(mMutex);
+    QString queryString = constructDatabaseRetrieveQuery();
+
+    auto query = executeSqlQuery(queryString);
+
+    int idName    = query.record().indexOf("Name");
+    int idValue      = query.record().indexOf("Value");
+
+    if(query.size() == 0)
+    {
+        return {};
+    }
+
+    BoilerSettingsPayload boilerSettings;
+
+    while(query.next())
+    {
+        QString name = query.value(idName).toString();
+        auto value = query.record().value(idValue);
+        boilerSettings.setPropertyByName(name,value.toInt());
+    }
+    return boilerSettings;
+}
+
+void Database::createBoilerSettingsTable()
+{
+    std::lock_guard<std::recursive_mutex> _lock(mMutex);
+
+    QString queryString = R"(CREATE TABLE BoilerSettings (
+    Name TEXT PRIMARY KEY,
+    Value INTEGER NOT NULL);)";
+
+    executeSqlQuery(queryString);
+}
+
+std::optional<int> Database::getBoilerSettingByName(const QString& name)
+{
+    //no locking here - internal only
+    QString queryString = R"(select Value from BoilerSettings where Name=")";
+        queryString.append(name);
+        queryString.append(R"(")");
+
+    auto query = executeSqlQuery(queryString);
+
+    int idValue      = query.record().indexOf("Value");
+
+    if(query.size() == 0)
+    {
+        return {};
+    }
+
+    BoilerSettingsPayload boilerSettings;
+
+    while(query.next())
+    {
+        return query.record().value(idValue).toInt();
+    }
+    return {};
+}
+
+void Database::setBoilerSettingByName(const QString &name, int value)
+{
+    std::lock_guard<std::recursive_mutex> _lock(mMutex);
+    auto curVal = getBoilerSettingByName(name);
+
+    if(!curVal)
+    {
+        //INSERT INTO BoilerSettings (Name,Value) VALUES ("dupa",5)
+        QString queryString = R"(INSERT INTO BoilerSettings (Name,Value) VALUES (")";
+        queryString.append(name);
+        queryString.append(R"(",)");
+        queryString.append(QString::number(value));
+        queryString.append(R"())");
+
+        executeSqlQuery(queryString);
+    }
+    else if(value != curVal)
+    {
+        //UPDATE BoilerSettings SET Value=5 WHERE Name="dupa"
+        QString queryString = "UPDATE BoilerSettings SET Value=";
+        queryString.append(QString::number(value));
+        queryString.append(R"( WHERE Name=")");
+        queryString.append(name);
+        queryString.append(R"(")");
+
+        executeSqlQuery(queryString);
+    }
 }
 
 std::vector<HeatProfile> Database::getHeatProfiles()

@@ -206,11 +206,14 @@ void GrandCentral::handleSessionIdChange(quint32 sessionId)
         else
         {
             lock.unlock();
-
             qDebug() << "Known session ID, reprovisioning the DB data";
+
+            mSerialConnection->terminateAll();
+            setInOutMappings();
+            mSerialConnection->initAll();
+
             mComponents->sendHardwareReprovisionNotif(controllerInfo);
         }
-
 }
 
 void GrandCentral::resetGrandCentralSettings()
@@ -224,18 +227,27 @@ void GrandCentral::setInOutMappings()
 
     for(auto& pin: mPins)
     {
-        if(pin->getPinType() == PinType::INPUT_PULLUP || pin->getPinType() == PinType::INPUT_NO_PULLUP || pin->getPinType() == PinType::VIRTUAL_INPUT)
+        const auto pinType = pin->getPinType();
+        const auto pinId = pin->getPinId();
+
+        if(pinType == PinType::INPUT_PULLUP || pinType == PinType::INPUT_NO_PULLUP || pinType == PinType::VIRTUAL_INPUT
+            || pinType == PinType::INPUT_PULLUP_MIRROR || pinType == PinType::INPUT_NO_PULLUP_MIRROR)
         {
-            inMappings[pin->getPinId().mExpanderId][pin->getPinId().mPinId] = 1;
+            inMappings[pin->getPinId().mExpanderId][pinId.mPinId] = 1;
         }
-        else if(pin->getPinType() == PinType::OUTPUT_LOW || pin->getPinType() == PinType::OUTPUT_HIGH)
+        else if(pinType == PinType::OUTPUT_LOW || pinType == PinType::OUTPUT_HIGH)
         {
-            outMappings[pin->getPinId().mExpanderId][pin->getPinId().mPinId] = 1;
+            outMappings[pin->getPinId().mExpanderId][pinId.mPinId] = 1;
         }
 
-        if(pin->getPinType() == PinType::INPUT_PULLUP || pin->getPinType() == PinType::OUTPUT_HIGH)
+        if(pinType == PinType::INPUT_PULLUP || pinType == PinType::INPUT_PULLUP_MIRROR || pinType == PinType::OUTPUT_HIGH)
         {
-            mSerialConnection->setDefaultOutputState(pin->getPinId(), true);
+            mSerialConnection->setDefaultOutputState(pinId, true);
+        }
+
+        if(pinType == PinType::INPUT_PULLUP_MIRROR || pinType == PinType::INPUT_NO_PULLUP_MIRROR)
+        {
+            mSerialConnection->setInputPinTypeMirror(pinId);
         }
     }
 

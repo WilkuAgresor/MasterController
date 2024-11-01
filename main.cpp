@@ -10,33 +10,40 @@
 #include <QDateTime>
 #include <QFile>
 
-//static const QtMessageHandler QT_DEFAULT_MESSAGE_HANDLER = qInstallMessageHandler(0);
+#include <QtCore5Compat/QTextCodec>
 
-void myMessageOutput(QtMsgType type, const QMessageLogContext &/*context*/, const QString &msg)
+static const QtMessageHandler QT_DEFAULT_MESSAGE_HANDLER = qInstallMessageHandler(0);
+
+void myMessageOutput(QtMsgType type, const QMessageLogContext &context, const QString &msg)
 try
-{        
-    QString message = msg;
-    QString finalLogMessage = QDateTime::currentDateTime().toString(Qt::ISODateWithMs)+ " | " + message;
+{    
+    QString finalLogMessage = QDateTime::currentDateTime().toString(Qt::ISODateWithMs)+ " | " + msg;
 
-    static QMutex mutex;
-    QMutexLocker lock(&mutex);
-
-    static QFile errorLog("/opt/log/error.log");
-    static QFile debugLog("/opt/log/debug.log");
-    static bool errorLogIsOpen = errorLog.open(QIODevice::Append | QIODevice::Text);
-    static bool debugLogIsOpen = debugLog.open(QIODevice::Append | QIODevice::Text);
+    (*QT_DEFAULT_MESSAGE_HANDLER)(type, context, finalLogMessage);
 
 
-    if (type == QtMsgType::QtDebugMsg && debugLogIsOpen)
-    {
-        QTextStream out(&debugLog);
-        out << finalLogMessage << '\n';
-    }
-    else if(errorLogIsOpen)
-    {
-        QTextStream out(&errorLog);
-        out << finalLogMessage << '\n';
-    }
+    // QString message = msg;
+    // QString finalLogMessage = QDateTime::currentDateTime().toString(Qt::ISODateWithMs)+ " | " + message;
+
+    // static QMutex mutex;
+    // QMutexLocker lock(&mutex);
+
+    // static QFile errorLog("/opt/log/error.log");
+    // static QFile debugLog("/opt/log/debug.log");
+    // static bool errorLogIsOpen = errorLog.open(QIODevice::Append | QIODevice::Text);
+    // static bool debugLogIsOpen = debugLog.open(QIODevice::Append | QIODevice::Text);
+
+
+    // if (type == QtMsgType::QtDebugMsg && debugLogIsOpen)
+    // {
+    //     QTextStream out(&debugLog);
+    //     out << finalLogMessage << '\n';
+    // }
+    // else if(errorLogIsOpen)
+    // {
+    //     QTextStream out(&errorLog);
+    //     out << finalLogMessage << '\n';
+    // }
 
 
 
@@ -80,12 +87,11 @@ catch(const std::exception&)
 
 int main(int argc, char *argv[])
 {
-    QCoreApplication::setAttribute(Qt::AA_EnableHighDpiScaling);
     QTextCodec::setCodecForLocale(QTextCodec::codecForName("UTF-8"));
 
     qRegisterMetaType<QNetworkDatagram>("QNetworkDatagram");
 
-    QGuiApplication app(argc, argv);
+    QCoreApplication app(argc, argv);
     qInstallMessageHandler(myMessageOutput);
     qWarning() << "CONTROLLER START";
 

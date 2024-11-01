@@ -5,7 +5,7 @@
 #include <../common/subsystems/lights/LightsRetrieveMessage.hpp>
 #include <../common/CommonDefinitions.hpp>
 #include <../common/subsystems/lights/LightsDictionary.hpp>
-#include <hardware/ControllerInfo.hpp>
+#include <../common/subsystems/status/ControllerInfo.hpp>
 #include <hardware/PinIdentifier.hpp>
 #include <mutex>
 
@@ -35,9 +35,9 @@ public slots:
     void handleStateChanged(PinIdentifier pinId, bool state);
     void handleHardwareReprovisionNotif(ControllerInfo controller);
 
-private:       
+private:
 
-    std::map<int,int> mLightToGroupingMap;
+    std::map<int,int> mLightToGroupingMap;  //<lightId,hardwareGroupingId>
     std::mutex mDbMutex;
 };
 

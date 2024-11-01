@@ -54,10 +54,17 @@ void MessageHandler::run()
     }
     else if(isHeatingMessage(header.getType()))
     {
+        qDebug() << "heating message";
         mComponents->mHeatingComponents->handleMessage(mMsg, mFromAddr);
+        qDebug() << "after heating message";
+
     }
     else if(isLightsMessage(header.getType()))
     {
         mComponents->mLightsComponents->handleMessage(mMsg, mFromAddr);
+    }
+    else
+    {
+        qDebug() << "Unsupported message received: "<<mMsg.toString();
     }
 }

@@ -1,7 +1,7 @@
 #pragma once
 
 #include <QObject>
-#include <hardware/ControllerInfo.hpp>
+#include <../common/subsystems/status/ControllerInfo.hpp>
 #include <hardware/Pin.hpp>
 #include <hardware/PinMapping.hpp>
 #include <serialListener/SerialConnection.hpp>

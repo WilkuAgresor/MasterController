@@ -17,7 +17,7 @@ public:
     ReceivePortsBank mNetworkPortRepository;
     Sender* mSender;
     std::vector<ControllerInfo> mControllers;
-    std::unique_ptr<HeatingAppComponents> mHeatingComponents;
+    HeatingAppComponents* mHeatingComponents;
     LightsAppComponents* mLightsComponents;
 
     GrandCentral* mGrandCentral;

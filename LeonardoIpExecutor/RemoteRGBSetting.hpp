@@ -10,6 +10,9 @@ struct RemotePinSetting
 
     PinIdentifier mPin;
     int mValue = 0;
+
+    int mOnSetting = 0;
+    int mOffSetting = 0;
 };
 
 struct RGBSetting

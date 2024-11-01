@@ -2,7 +2,7 @@
 #include <limits>
 #include <random>
 #include <../common/subsystems/alarm/alarmSetMessage.hpp>
-#include <hardware/ControllerInfo.hpp>
+#include <../common/subsystems/status/ControllerInfo.hpp>
 
 #include <chrono>
 #include <thread>
