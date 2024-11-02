@@ -9,7 +9,7 @@ class PinMapping
 public:
     PinMapping(int id);
 
-    int getId();
+    int getId() const;
 
     friend bool operator== (const PinMapping &c1, const PinMapping &c2)
     {
@@ -20,8 +20,8 @@ public:
         return c1.mId != c2.mId;
     }
 
-    std::vector<PinIdentifier> getInputPins();
-    std::vector<PinIdentifier> getOutputPins();
+    std::vector<PinIdentifier> getInputPins() const;
+    std::vector<PinIdentifier> getOutputPins() const;
 
     void setInputPins(const QString& dbEntry);
     void setOutputPins(const QString& dbEntry);
@@ -40,8 +40,8 @@ public:
     void setNotifyDoubleClick(bool notifyDoubleClick);
     void setNofityPress(bool notifyPress);
 
-    bool containsOutputPin(const PinIdentifier& pinId);
-    bool containsInputPin(const PinIdentifier& pinId);
+    bool containsOutputPin(const PinIdentifier& pinId) const;
+    bool containsInputPin(const PinIdentifier& pinId) const;
 
 private:
 

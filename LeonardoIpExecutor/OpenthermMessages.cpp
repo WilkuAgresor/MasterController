@@ -58,8 +58,7 @@ OpenthermSetMessage::OpenthermSetMessage(const QString &name, int value)
     , mName(name)
     , mValue(value)
 {
-    mCsvData.push_back(name);
-    mCsvData.push_back(QString::number(value));
+    mCsvData = QStringList { name, QString::number(value) };
 }
 
 QString OpenthermSetMessage::getName()

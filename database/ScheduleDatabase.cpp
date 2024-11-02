@@ -36,16 +36,12 @@ void ScheduleDatabase::insertEvent(int evtType, const QString& body, int interva
 {
     std::lock_guard<std::recursive_mutex> _lock(mMutex);
 
-    QString queryString = R"(INSERT INTO scheduledEvents (type, body, intervalProfile, triggerTime)
-                          VALUES (  ')";
-    queryString.append(QString::number(evtType));
-    queryString.append(" , ");
-    queryString.append(body);
-    queryString.append(" , ");
-    queryString.append(QString::number(intervalProfile));
-    queryString.append(" , ");
-    queryString.append(triggerTime);
-    queryString.append(')');
+    auto queryString = QString(R"(INSERT INTO scheduledEvents (type, body, intervalProfile, triggerTime)
+                                  VALUES (%1, '%2', %3, '%4'))")
+                              .arg(QString::number(evtType))
+                              .arg(body)
+                              .arg(QString::number(intervalProfile))
+                              .arg(triggerTime);
 
     executeSqlQuery(queryString);
 }
@@ -54,9 +50,8 @@ void ScheduleDatabase::deleteEventById(int evtId)
 {
     std::lock_guard<std::recursive_mutex> _lock(mMutex);
 
-    QString queryString = R"(DELETE FROM scheduledEvents')";
-    queryString.append(R"(' WHERE id = )");
-    queryString.append(QString::number(evtId));
+    auto queryString = QString(R"(DELETE FROM scheduledEvents WHERE id = %1)")
+                              .arg(QString::number(evtId));
 
     executeSqlQuery(queryString);
 }

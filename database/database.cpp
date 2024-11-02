@@ -66,9 +66,7 @@ ControllerInfo Database::getControllerInfo(const QString &name)
     std::lock_guard<std::recursive_mutex> _lock(mMutex);
     ControllerInfo info;
 
-    QString queryString = R"(select * from Controllers WHERE name = ")";
-    queryString.append(name);
-    queryString.append(R"(")");
+    auto queryString = QString("select * from Controllers WHERE name = \"%1\"").arg(name);
 
     auto query = executeSqlQuery(queryString);
 
@@ -99,12 +97,8 @@ std::vector<ControllerInfo> Database::getControllers()
 {
     std::vector<ControllerInfo> controllers;
 
-    auto controllerNames = getControllerNames();
-    for(auto& controllerName: controllerNames)
-    {
-        auto controllerInfo = getControllerInfo(controllerName);
-        controllers.push_back(controllerInfo);
-    }
+    std::ranges::transform(getControllerNames(), std::back_inserter(controllers), [this](const auto& x){return getControllerInfo(x);});
+
     return controllers;
 }
 
@@ -112,11 +106,8 @@ void Database::updateControllerCurKey(const QString& deviceName, uint64_t newKey
 {
     std::lock_guard<std::recursive_mutex> _lock(mMutex);
 
-    QString queryString = "UPDATE Controllers SET key = ";
-    queryString.append(QString::number(newKey));
-    queryString.append(R"( WHERE name = ")");
-    queryString.append(deviceName);
-    queryString.append(R"(")");
+    auto queryString = QString("UPDATE Controllers SET key = %1 WHERE name = \"%2\"")
+                              .arg(QString::number(newKey), deviceName);
 
     executeSqlQuery(queryString);
 }
@@ -127,11 +118,8 @@ void Database::updateControllerTryContactTime(const QString& deviceName)
 
     auto now = QDateTime::currentDateTime();
 
-    QString queryString = "UPDATE Controllers SET lastTryTime = ";
-    queryString.append(now.toString());
-    queryString.append(R"( WHERE name = ")");
-    queryString.append(deviceName);
-    queryString.append(R"(")");
+    auto queryString = QString("UPDATE Controllers SET lastTryTime = %1 WHERE name = \"%2\"")
+                              .arg(now.toString(), deviceName);
 
     executeSqlQuery(queryString);
 }
@@ -142,11 +130,8 @@ void Database::updateControllerSuccessContactTime(const QString& deviceName)
 
     auto now = QDateTime::currentDateTime();
 
-    QString queryString = "UPDATE Controllers SET lastSuccTime = ";
-    queryString.append(now.toString());
-    queryString.append(R"( WHERE name = ")");
-    queryString.append(deviceName);
-    queryString.append(R"(")");
+    auto queryString = QString("UPDATE Controllers SET lastSuccTime = %1 WHERE name = \"%2\"")
+                              .arg(now.toString(), deviceName);
 
     executeSqlQuery(queryString);
 }
@@ -155,11 +140,8 @@ void Database::updateControllerStatus(const QString &deviceName, ControllerInfo:
 {
     std::lock_guard<std::recursive_mutex> _lock(mMutex);
 
-    QString queryString = "UPDATE Controllers SET status = ";
-    queryString.append(QString::number(static_cast<int>(status)));
-    queryString.append(R"( WHERE name = ")");
-    queryString.append(deviceName);
-    queryString.append(R"(")");
+    auto queryString = QString("UPDATE Controllers SET status = %1 WHERE name = \"%2\"")
+                              .arg(QString::number(static_cast<int>(status)), deviceName);
 
     executeSqlQuery(queryString);
 }
@@ -185,9 +167,8 @@ QString Database::getDevicesControllerName(const QString &deviceName)
 {
     std::lock_guard<std::recursive_mutex> _lock(mMutex);
 
-    QString queryString = R"(select controller_name from Devices where name=")";
-    queryString.append(deviceName);
-    queryString.append(R"(")");
+    auto queryString = QString(R"(SELECT controller_name FROM Devices WHERE name="%1")")
+                              .arg(deviceName);
 
     auto query = executeSqlQuery(queryString);
 
@@ -226,9 +207,9 @@ std::vector<QString> Database::getSystemDeviceNames(const QString &systemName)
     std::lock_guard<std::recursive_mutex> _lock(mMutex);
 
     std::vector<QString> devices;
-    QString queryString = R"(select device_name from SystemDeviceRelation where system_name=")";
-    queryString.append(systemName);
-    queryString.append(R"(")");
+
+    auto queryString = QString(R"(SELECT device_name FROM SystemDeviceRelation WHERE system_name="%1")")
+                              .arg(systemName);
 
     auto query = executeSqlQuery(queryString);
 
@@ -263,9 +244,9 @@ std::vector<QString> Database::getRoomDeviceNames(const QString &roomName)
     std::lock_guard<std::recursive_mutex> _lock(mMutex);
 
     std::vector<QString> devices;
-    QString queryString = R"(select device_name from RoomDeviceRelation where room_name=")";
-    queryString.append(roomName);
-    queryString.append(R"(")");
+
+    QString queryString = QString(R"(SELECT device_name FROM RoomDeviceRelation WHERE room_name="%1")")
+                              .arg(roomName);
 
     auto query = executeSqlQuery(queryString);
 
@@ -282,9 +263,9 @@ DeviceInfo Database::getDeviceInfo(const QString &deviceName)
 {
     std::lock_guard<std::recursive_mutex> _lock(mMutex);
 
-    QString queryString = R"(select * from Devices WHERE name = ")";
-    queryString.append(deviceName);
-    queryString.append(R"(")");
+    auto queryString = QString(R"(SELECT * FROM Devices WHERE name = "%1")")
+                              .arg(deviceName);
+
     auto query = executeSqlQuery(queryString);
 
     int idName      = query.record().indexOf("name");
@@ -318,10 +299,9 @@ std::vector<HeatZoneSetting> Database::getHeatZoneSettings(int profileId)
     std::lock_guard<std::recursive_mutex> _lock(mMutex);
 
     std::vector<HeatZoneSetting> zones;
-    for(auto& zoneId: getHeatingZoneIds())
-    {
-        zones.push_back(getHeatZoneSettings(profileId, zoneId));
-    }
+
+    std::ranges::transform(getHeatingZoneIds(), std::back_inserter(zones), [this, &profileId](const auto& x){return getHeatZoneSettings(profileId, x);});
+
     return zones;
 }
 
@@ -337,8 +317,8 @@ HeatZoneGuiSettings Database::getHeatZoneGuiSettings(int zoneId)
 {
     std::lock_guard<std::recursive_mutex> _lock(mMutex);
 
-    QString queryString = R"(select * from HeatingZoneGuiSetting where HeatingZoneId=)";
-    queryString.append(QString::number(zoneId));
+    auto queryString = QString(R"(SELECT * FROM HeatingZoneGuiSetting WHERE HeatingZoneId=%1)")
+                              .arg(zoneId);
 
     auto query = executeSqlQuery(queryString);
 
@@ -367,15 +347,14 @@ std::vector<HeatingZone> Database::getHeatingZonesHardware(quint16 systemId)
     std::lock_guard<std::recursive_mutex> _lock(mMutex);
     std::vector<HeatingZone> zones;
 
-    QString queryString = R"(SELECT *
-                          FROM HeatingZone
-                          WHERE HeatingZone.HeatingSystemId = )";
-    queryString.append(QString::number(systemId));
+    auto queryString = QString(R"(SELECT *
+                                 FROM HeatingZone
+                                 WHERE HeatingZone.HeatingSystemId = %1)")
+                              .arg(systemId);
 
     auto query = executeSqlQuery(queryString);
 
     int idId = query.record().indexOf("HeatingZoneId");
-
 
     while(query.next())
     {
@@ -390,10 +369,10 @@ std::vector<TemperatureSensor> Database::getTemperatureSensorsHardware(quint16 z
 
     std::vector<TemperatureSensor> sensors;
 
-    QString queryString = R"(SELECT *
-                          FROM TemperatureSensors
-                          WHERE TemperatureSensors.zoneId = )";
-    queryString.append(QString::number(zoneId));
+    auto queryString = QString(R"(SELECT *
+                                 FROM TemperatureSensors
+                                 WHERE TemperatureSensors.zoneId = %1)")
+                              .arg(zoneId);
 
     auto query = executeSqlQuery(queryString);
 
@@ -416,14 +395,13 @@ LightControllerSettings Database::getLightSetting(int id)
 {
     std::lock_guard<std::recursive_mutex> _lock(mMutex);
 
-    QString queryString = R"(SELECT *
-                          FROM LightsControl
-                          LEFT JOIN LightsControlGuiSetting
-                          ON LightsControl.LightsControlId = LightsControlGuiSetting.LightsControlId
-                          WHERE LightsControl.LightsControlId = )";
-    queryString.append(QString::number(id));
+    auto queryString = QString(R"(SELECT *
+                                 FROM LightsControl
+                                 LEFT JOIN LightsControlGuiSetting
+                                 ON LightsControl.LightsControlId = LightsControlGuiSetting.LightsControlId
+                                 WHERE LightsControl.LightsControlId = %1)")
+                              .arg(id);
 
-    qDebug() << queryString;
     auto query= executeSqlQuery(queryString);
 
     int idId = query.record().indexOf("LightsControlId");
@@ -544,13 +522,13 @@ std::vector<RemotePinSetting> Database::getRemoteSwitchSettings(int lightId)
     std::lock_guard<std::recursive_mutex> _lock(mMutex);
     std::vector<RemotePinSetting> remoteSettings;
 
-    QString queryString = R"(select RemoteExpanders.pinId, Controllers.ipAddr, Controllers.port, RemoteSwitch.onState, RemoteSwitch.offState from RemoteExpanders
-                          LEFT JOIN RemoteSwitch ON RemoteSwitch.port = RemoteExpanders.id
-                          LEFT JOIN LightsControl ON LightsControl.LightsControlId = RemoteSwitch.lightId
-                          LEFT JOIN Controllers ON RemoteExpanders.controller = Controllers.name
-                          WHERE RemoteSwitch.lightId =
-                          )";
-    queryString.append(QString::number(lightId));
+    auto queryString = QString(R"(SELECT RemoteExpanders.pinId, Controllers.ipAddr, Controllers.port, RemoteSwitch.onState, RemoteSwitch.offState
+                                 FROM RemoteExpanders
+                                 LEFT JOIN RemoteSwitch ON RemoteSwitch.port = RemoteExpanders.id
+                                 LEFT JOIN LightsControl ON LightsControl.LightsControlId = RemoteSwitch.lightId
+                                 LEFT JOIN Controllers ON RemoteExpanders.controller = Controllers.name
+                                 WHERE RemoteSwitch.lightId = %1)")
+                              .arg(lightId);
 
     auto query = executeSqlQuery(queryString);
 
@@ -570,8 +548,6 @@ std::vector<RemotePinSetting> Database::getRemoteSwitchSettings(int lightId)
         setting.mOnSetting = query.value(idOnState).toInt();
         setting.mOffSetting = query.value(idOffState).toInt();
 
-        qDebug() <<"on state: "<<setting.mOnSetting << " off state: "<<setting.mOffSetting;
-
         remoteSettings.push_back(setting);
     }
     return remoteSettings;
@@ -581,19 +557,17 @@ RGBSetting Database::getRGBSetting(int lightId)
 {
     std::lock_guard<std::recursive_mutex> _lock(mMutex);
 
+    auto queryStr = QString("SELECT RemoteExpanders.pinId, LightsControl.LightsControlRGB, LightsControl.LightsControlDimm, Controllers.ipAddr, Controllers.port\
+                          FROM RemoteExpanders\
+                          LEFT JOIN RemoteRGBLights ON RemoteRGBLights.%1 = RemoteExpanders.id\
+                          LEFT JOIN LightsControl ON LightsControl.LightsControlId = RemoteRGBLights.lightId\
+                          LEFT JOIN Controllers ON RemoteExpanders.controller = Controllers.name\
+                          WHERE RemoteRGBLights.lightId = %2");
+
     RGBSetting colorSetting;
 
     {
-        QString queryRed = R"(select RemoteExpanders.pinId, LightsControl.LightsControlRGB, LightsControl.LightsControlDimm, Controllers.ipAddr, Controllers.port from RemoteExpanders
-                           LEFT JOIN RemoteRGBLights ON RemoteRGBLights.red = RemoteExpanders.id
-                           LEFT JOIN LightsControl ON LightsControl.LightsControlId = RemoteRGBLights.lightId
-                           LEFT JOIN Controllers ON RemoteExpanders.controller = Controllers.name
-                           WHERE RemoteRGBLights.lightId =
-                              )";
-        queryRed.append(QString::number(lightId));
-
-
-        auto query = executeSqlQuery(queryRed);
+        auto query = executeSqlQuery(queryStr.arg("red", QString::number(lightId)));
 
         int idControllerIp = query.record().indexOf("ipAddr");
         int idControllerPort = query.record().indexOf("port");
@@ -610,15 +584,7 @@ RGBSetting Database::getRGBSetting(int lightId)
     }
 
     {
-        QString queryGreen = R"(select RemoteExpanders.pinId, LightsControl.LightsControlRGB, LightsControl.LightsControlDimm, Controllers.ipAddr, Controllers.port from RemoteExpanders
-                             LEFT JOIN RemoteRGBLights ON RemoteRGBLights.green = RemoteExpanders.id
-                             LEFT JOIN LightsControl ON LightsControl.LightsControlId = RemoteRGBLights.lightId
-                             LEFT JOIN Controllers ON RemoteExpanders.controller = Controllers.name
-                             WHERE RemoteRGBLights.lightId =
-                              )";
-        queryGreen.append(QString::number(lightId));
-
-        auto query = executeSqlQuery(queryGreen);
+        auto query = executeSqlQuery(queryStr.arg("green", QString::number(lightId)));
 
         int idControllerIp = query.record().indexOf("ipAddr");
         int idControllerPort = query.record().indexOf("port");
@@ -634,16 +600,8 @@ RGBSetting Database::getRGBSetting(int lightId)
         }
     }
 
-    {
-        QString queryBlue = R"(select RemoteExpanders.pinId, LightsControl.LightsControlRGB, LightsControl.LightsControlDimm, Controllers.ipAddr, Controllers.port from RemoteExpanders
-                            LEFT JOIN RemoteRGBLights ON RemoteRGBLights.blue = RemoteExpanders.id
-                            LEFT JOIN LightsControl ON LightsControl.LightsControlId = RemoteRGBLights.lightId
-                            LEFT JOIN Controllers ON RemoteExpanders.controller = Controllers.name
-                            WHERE RemoteRGBLights.lightId =
-                              )";
-        queryBlue.append(QString::number(lightId));
-
-        auto query = executeSqlQuery(queryBlue);
+    {       
+        auto query = executeSqlQuery(queryStr.arg("blue", QString::number(lightId)));
 
         int idControllerIp = query.record().indexOf("ipAddr");
         int idControllerPort = query.record().indexOf("port");
@@ -667,7 +625,6 @@ std::map<int,int> Database::getLightsGroupingMap()
     QString queryString = "SELECT LightsControl.LightsControlId, LightsControl.HardwareGrouping from LightsControl";
     auto query = executeSqlQuery(queryString);
 
-
     std::map<int,int> lightHardwareMapping;
 
     int idLightId = query.record().indexOf("LightsControlId");
@@ -689,16 +646,10 @@ void Database::setLightsIsOn(int lightId, bool isOn)
 {
     std::lock_guard<std::recursive_mutex> _lock(mMutex);
 
-    int intValue;
-    if(isOn)
-        intValue = 1;
-    else
-        intValue = 0;
+    int intValue = isOn ? 1 : 0;
 
-    QString queryString = "UPDATE LightsControl SET LightsControlOn = ";
-    queryString.append(QString::number(intValue));
-    queryString.append(R"( WHERE LightsControlId = )");
-    queryString.append(QString::number(lightId));
+    auto queryString = QString("UPDATE LightsControl SET LightsControlOn = %1 WHERE LightsControlId = %2")
+                              .arg(intValue, lightId);
 
     executeSqlQuery(queryString);
 }
@@ -707,10 +658,8 @@ void Database::setLightsDimm(int lightId, int dimm)
 {
     std::lock_guard<std::recursive_mutex> _lock(mMutex);
 
-    QString queryString = "UPDATE LightsControl SET LightsControlDimm = ";
-    queryString.append(QString::number(dimm));
-    queryString.append(R"( WHERE LightsControlId = )");
-    queryString.append(QString::number(lightId));
+    auto queryString = QString("UPDATE LightsControl SET LightsControlDimm = %1 WHERE LightsControlId = %2")
+                              .arg(dimm, lightId);
 
     executeSqlQuery(queryString);
 }
@@ -719,10 +668,8 @@ void Database::setLightsColor(int lightId, const QString &color)
 {
     std::lock_guard<std::recursive_mutex> _lock(mMutex);
 
-    QString queryString = R"(UPDATE LightsControl SET LightsControlRGB = ")";
-    queryString.append(color);
-    queryString.append(R"(" WHERE LightsControlId = )");
-    queryString.append(QString::number(lightId));
+    auto queryString = QString(R"(UPDATE LightsControl SET LightsControlRGB = "%1" WHERE LightsControlId = %2)")
+                              .arg(color, lightId);
 
     executeSqlQuery(queryString);
 }
@@ -731,45 +678,25 @@ void Database::setLightsGuiSettings(int lightId, const LightControllerGuiSetting
 {
     std::lock_guard<std::recursive_mutex> _lock(mMutex);
 
-    QString queryString = R"(UPDATE LightsControlGuiSetting SET x = )";
-    queryString.append(QString::number(guiSettings.mX));
-    queryString.append(R"( WHERE LightsControlId = )");
-    queryString.append(QString::number(lightId));
+    auto queryString = QString("UPDATE LightsControlGuiSetting SET %1 = %2 WHERE LightsControlId = %3");
 
-    qDebug() << "query: "<<queryString;
+    executeSqlQuery(queryString.arg("x", QString::number(guiSettings.mX), QString::number(lightId)));
 
-    executeSqlQuery(queryString);
+    executeSqlQuery(queryString.arg("y", QString::number(guiSettings.mY), QString::number(lightId)));
 
-    queryString = R"(UPDATE LightsControlGuiSetting SET y = )";
-    queryString.append(QString::number(guiSettings.mY));
-    queryString.append(R"( WHERE LightsControlId = )");
-    queryString.append(QString::number(lightId));
-
-    qDebug() << "query: "<<queryString;
-
-    executeSqlQuery(queryString);
-
-    queryString = R"(UPDATE LightsControlGuiSetting SET plane = )";
-    queryString.append(QString::number(guiSettings.mPlane));
-    queryString.append(R"( WHERE LightsControlId = )");
-    queryString.append(QString::number(lightId));
-
-    qDebug() << "query: "<<queryString;
-
-
-    executeSqlQuery(queryString);
+    executeSqlQuery(queryString.arg("plane", QString::number(guiSettings.mPlane), QString::number(lightId)));
 }
 
 PinMapping Database::getLightPinMapping(int lightId)
 {
     std::lock_guard<std::recursive_mutex> _lock(mMutex);
 
-    QString queryString = R"(SELECT GrandCentralGroupings.GroupingId, GrandCentralGroupings.GroupingInputPins, GrandCentralGroupings.GroupingOutputPins, GrandCentralGroupings.NotifyClick, GrandCentralGroupings.NotifyDoubleClick, GrandCentralGroupings.NotifyPress
-                          FROM GrandCentralGroupings
-                          LEFT JOIN LightsControl
-                          ON LightsControl.HardwareGrouping = GrandCentralGroupings.GroupingId
-                          WHERE LightsControl.LightsControlId = )";
-    queryString.append(QString::number(lightId));
+    auto queryString = QString(R"(SELECT GrandCentralGroupings.GroupingId, GrandCentralGroupings.GroupingInputPins, GrandCentralGroupings.GroupingOutputPins, GrandCentralGroupings.NotifyClick, GrandCentralGroupings.NotifyDoubleClick, GrandCentralGroupings.NotifyPress
+                                  FROM GrandCentralGroupings
+                                  LEFT JOIN LightsControl
+                                  ON LightsControl.HardwareGrouping = GrandCentralGroupings.GroupingId
+                                  WHERE LightsControl.LightsControlId = %1)")
+                              .arg(lightId);
 
     qDebug() << queryString;
     auto query= executeSqlQuery(queryString);
@@ -803,12 +730,12 @@ PinMapping Database::getLightPinMapping(int lightId)
 
 int Database::getLightGroupingId(int lightId)
 {
-    QString queryString = R"(SELECT GrandCentralGroupings.GroupingId
-                          FROM GrandCentralGroupings
-                          LEFT JOIN LightsControl
-                          ON LightsControl.HardwareGrouping = GrandCentralGroupings.GroupingId
-                          WHERE LightsControl.LightsControlId = )";
-    queryString.append(QString::number(lightId));
+    auto queryString = QString(R"(SELECT GrandCentralGroupings.GroupingId
+                                  FROM GrandCentralGroupings
+                                  LEFT JOIN LightsControl
+                                  ON LightsControl.HardwareGrouping = GrandCentralGroupings.GroupingId
+                                  WHERE LightsControl.LightsControlId = %1)")
+                              .arg(lightId);
 
     auto query = executeSqlQuery(queryString);
     int idId = query.record().indexOf("GroupingId");
@@ -820,12 +747,12 @@ int Database::getLightGroupingId(int lightId)
 
 int Database::getLightIdFromPinId(const PinIdentifier &id)
 {
-    QString queryString = R"(SELECT LightsControl.LightsControlId
-                          FROM LightsControl
-                          LEFT JOIN GrandCentralGroupings
-                          ON LightsControl.HardwareGrouping = GrandCentralGroupings.GroupingId
-                          WHERE GrandCentralGroupings.GroupingInputPins LIKE )";
-    queryString.append(id.toStringDatabase());
+    auto queryString = QString(R"(SELECT LightsControl.LightsControlId
+                                  FROM LightsControl
+                                  LEFT JOIN GrandCentralGroupings
+                                  ON LightsControl.HardwareGrouping = GrandCentralGroupings.GroupingId
+                                  WHERE GrandCentralGroupings.GroupingInputPins LIKE '%1')")
+                              .arg(id.toStringDatabase());
 
     auto query = executeSqlQuery(queryString);
     int idId = query.record().indexOf("LightsControlId");
@@ -931,12 +858,8 @@ HeatZoneSetting Database::getHeatZoneSettings(int profileId, int zoneId)
 {
     std::lock_guard<std::recursive_mutex> _lock(mMutex);
 
-    QString queryString = R"(select * from HeatingZoneSetting where HeatingZoneId=)";
-    queryString.append(QString::number(zoneId));
-    queryString.append(" AND ");
-    queryString.append("HeatingProfileId=");
-    queryString.append(QString::number(profileId));
-   // queryString.append(R"(")");
+    QString queryString = QString(R"(SELECT * FROM HeatingZoneSetting WHERE HeatingZoneId = %1 AND HeatingProfileId = %2)")
+                              .arg(QString::number(zoneId), QString::number(profileId));
 
     auto query = executeSqlQuery(queryString);
 
@@ -950,15 +873,8 @@ HeatZoneSetting Database::getHeatZoneSettings(int profileId, int zoneId)
     auto isOnInt = query.value(idIsOn).toInt();
     auto id = query.value(idId).toInt();
 
-    bool isOn;
-    if(isOnInt == 0)
-    {
-        isOn = false;
-    }
-    else
-    {
-        isOn = true;
-    }
+    bool isOn = isOnInt != 0;
+
     auto guiSettings = getHeatZoneGuiSettings(zoneId);
     auto name = getHeatZoneName(zoneId);
 
@@ -968,7 +884,7 @@ HeatZoneSetting Database::getHeatZoneSettings(int profileId, int zoneId)
 std::optional<BoilerSettingsPayload> Database::getBoilerSettings()
 {
     std::lock_guard<std::recursive_mutex> _lock(mMutex);
-    QString queryString = constructDatabaseRetrieveQuery();
+    QString queryString = constructBoilerDatabaseRetrieveQuery();
 
     auto query = executeSqlQuery(queryString);
 
@@ -1005,9 +921,8 @@ void Database::createBoilerSettingsTable()
 std::optional<int> Database::getBoilerSettingByName(const QString& name)
 {
     //no locking here - internal only
-    QString queryString = R"(select Value from BoilerSettings where Name=")";
-        queryString.append(name);
-        queryString.append(R"(")");
+    auto queryString = QString(R"(SELECT Value FROM BoilerSettings WHERE Name="%1")")
+                              .arg(name);
 
     auto query = executeSqlQuery(queryString);
 
@@ -1035,22 +950,16 @@ void Database::setBoilerSettingByName(const QString &name, int value)
     if(!curVal)
     {
         //INSERT INTO BoilerSettings (Name,Value) VALUES ("dupa",5)
-        QString queryString = R"(INSERT INTO BoilerSettings (Name,Value) VALUES (")";
-        queryString.append(name);
-        queryString.append(R"(",)");
-        queryString.append(QString::number(value));
-        queryString.append(R"())");
+        auto queryString = QString(R"(INSERT INTO BoilerSettings (Name, Value) VALUES ("%1", %2))")
+                                  .arg(name, QString::number(value));
 
         executeSqlQuery(queryString);
     }
     else if(value != curVal)
     {
         //UPDATE BoilerSettings SET Value=5 WHERE Name="dupa"
-        QString queryString = "UPDATE BoilerSettings SET Value=";
-        queryString.append(QString::number(value));
-        queryString.append(R"( WHERE Name=")");
-        queryString.append(name);
-        queryString.append(R"(")");
+        QString queryString = QString(R"(UPDATE BoilerSettings SET Value=%1 WHERE Name="%2")")
+                                  .arg(QString::number(value), name);
 
         executeSqlQuery(queryString);
     }
@@ -1110,11 +1019,10 @@ int Database::getHeatZoneId(const QString &zoneName)
 {
     std::lock_guard<std::recursive_mutex> _lock(mMutex);
 
-    QString queryString = R"(select HeatingZoneId from HeatingZone where HeatingZoneName=")";
-    queryString.append(zoneName);
-    queryString.append(R"(")");
+    auto queryString = QString(R"(SELECT HeatingZoneId FROM HeatingZone WHERE HeatingZoneName="%1")")
+                              .arg(zoneName);
 
-    QSqlQuery query(queryString, mDatabase);
+    auto query = executeSqlQuery(queryString);
     query.next();
     int idId = query.record().indexOf("HeatingZoneId");
     return query.value(idId).toInt();
@@ -1124,11 +1032,10 @@ QString Database::getHeatZoneName(int zoneId)
 {
     std::lock_guard<std::recursive_mutex> _lock(mMutex);
 
-    QString queryString = R"(select HeatingZoneName from HeatingZone where HeatingZoneId=")";
-    queryString.append(QString::number(zoneId));
-    queryString.append(R"(")");
+    auto queryString = QString(R"(SELECT HeatingZoneName FROM HeatingZone WHERE HeatingZoneId=%1)")
+                              .arg(zoneId);
 
-    QSqlQuery query(queryString, mDatabase);
+    auto query = executeSqlQuery(queryString);
     query.next();
     int idName = query.record().indexOf("HeatingZoneName");
     return query.value(idName).toString();
@@ -1138,9 +1045,8 @@ int Database::getHeatProfileId(const QString &profileName)
 {
     std::lock_guard<std::recursive_mutex> _lock(mMutex);
 
-    QString queryString = R"(select HeatingProfileId from HeatingProfile where HeatingProfileName=")";
-    queryString.append(profileName);
-    queryString.append(R"(")");
+    auto queryString = QString(R"(SELECT HeatingProfileId FROM HeatingProfile WHERE HeatingProfileName="%1")")
+                              .arg(profileName);
 
     auto query = executeSqlQuery(queryString);
     query.next();
@@ -1152,8 +1058,8 @@ QString Database::getHeatProfileName(int profileId)
 {
     std::lock_guard<std::recursive_mutex> _lock(mMutex);
 
-    QString queryString = R"(select HeatingProfileName from HeatingProfile where HeatingProfileId=)";
-    queryString.append(QString::number(profileId));
+    auto queryString = QString(R"(SELECT HeatingProfileName FROM HeatingProfile WHERE HeatingProfileId=%1)")
+                              .arg(QString::number(profileId));
 
     auto query = executeSqlQuery(queryString);
     query.next();
@@ -1184,15 +1090,10 @@ void Database::setHeatMasterOn(bool value)
 {
     std::lock_guard<std::recursive_mutex> _lock(mMutex);
 
-    int intValue;
-    if(value)
-        intValue = 1;
-    else
-        intValue = 0;
+    int intValue = value ? 1: 0;
 
-    QString queryString = "UPDATE HeatingSystem SET HeatingMasterIsOn = ";
-    queryString.append(QString::number(intValue));
-    queryString.append(R"( WHERE HeatingSystemId = 1)");
+    auto queryString = QString("UPDATE HeatingSystem SET HeatingMasterIsOn = %1 WHERE HeatingSystemId = 1")
+                              .arg(QString::number(intValue));
 
     executeSqlQuery(queryString);
 }
@@ -1201,12 +1102,10 @@ void Database::setHeatZoneTemperature(int temperature, int zoneId, int profileId
 {
     std::lock_guard<std::recursive_mutex> _lock(mMutex);
 
-    QString queryString = "UPDATE HeatingZoneSetting SET HeatingZoneSettingTemp = ";
-    queryString.append(QString::number(temperature));
-    queryString.append(R"( WHERE HeatingZoneId = )");
-    queryString.append(QString::number(zoneId));
-    queryString.append(R"( AND HeatingProfileId = )");
-    queryString.append(QString::number(profileId));
+    auto queryString = QString("UPDATE HeatingZoneSetting SET HeatingZoneSettingTemp = %1 WHERE HeatingZoneId = %2 AND HeatingProfileId = %3")
+                              .arg(QString::number(temperature))
+                              .arg(QString::number(zoneId))
+                              .arg(QString::number(profileId));
 
     executeSqlQuery(queryString);
 }
@@ -1215,18 +1114,12 @@ void Database::setHeatZoneIsOn(bool value, int zoneId, int profileId)
 {
     std::lock_guard<std::recursive_mutex> _lock(mMutex);
 
-    int intValue;
-    if(value)
-        intValue = 1;
-    else
-        intValue = 0;
+    int intValue = value ? 1 : 0;
 
-    QString queryString = "UPDATE HeatingZoneSetting SET HeatingZoneSettingIsOn = ";
-    queryString.append(QString::number(intValue));
-    queryString.append(R"( WHERE HeatingZoneId = )");
-    queryString.append(QString::number(zoneId));
-    queryString.append(R"( AND HeatingProfileId = )");
-    queryString.append(QString::number(profileId));
+    auto queryString = QString("UPDATE HeatingZoneSetting SET HeatingZoneSettingIsOn = %1 WHERE HeatingZoneId = %2 AND HeatingProfileId = %3")
+                              .arg(QString::number(intValue))
+                              .arg(QString::number(zoneId))
+                              .arg(QString::number(profileId));
 
     executeSqlQuery(queryString);
 }

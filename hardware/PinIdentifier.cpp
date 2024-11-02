@@ -2,32 +2,20 @@
 
 bool outputStateToBool(OutputState state)
 {
-    if(state == OutputState::HIGH)
-    {
-        return true;
-    }
-    return false;
+    return state == OutputState::HIGH;
 }
 
 OutputState boolToOutputState(bool state)
 {
-    return state?OutputState::HIGH : OutputState::LOW;
+    return state ? OutputState::HIGH : OutputState::LOW;
 }
 
 bool logicStateToBool(LogicState state)
 {
-    if(state == LogicState::ON)
-    {
-        return true;
-    }
-    return false;
+    return state == LogicState::ON;
 }
 
 LogicState boolToLogicState(bool state)
 {
-    if(state == true)
-    {
-        return  LogicState::ON;
-    }
-    return LogicState::OFF;
+    return state ? LogicState::ON : LogicState::OFF;
 }

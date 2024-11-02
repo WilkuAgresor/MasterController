@@ -1,5 +1,6 @@
 #include <connection/connectionmonitor.hpp>
 #include <mainapplication.hpp>
+#include <algorithm>
 
 SlaveConnectionMonitor::SlaveConnectionMonitor(MainApplication *appContext)
     : mAppContext(appContext),
@@ -12,17 +13,14 @@ bool SlaveConnectionMonitor::addEntry(QString controllerName, QHostAddress contr
 {
     std::lock_guard<std::mutex> _lock(mMutex);
 
-    ConnectionEntry newEntry;
-    newEntry.controllerAddress = controllerAddress;
-    newEntry.controllerName = controllerName;
+    ConnectionEntry newEntry(controllerName, controllerAddress);
 
-    for(auto& entry: entries)
+    if(std::ranges::any_of(entries, [&newEntry](auto const& x){ return x == newEntry;}))
     {
-        if(entry == newEntry)
-            return false;
+        return false;
     }
-
     entries.push_back(newEntry);
+
     return true;
 }
 
@@ -30,15 +28,13 @@ ConnectionEntry SlaveConnectionMonitor::getKey(const QHostAddress &ipAddr)
 {
     std::lock_guard<std::mutex> _lock(mMutex);
 
-    auto localEntries = entries;
-    for(auto& entry: localEntries)
+    if (auto result = std::ranges::find_if(entries, [&ipAddr](const auto& x){return x.controllerAddress == ipAddr;}); result !=entries.end())
     {
-        if(entry.controllerAddress == ipAddr)
-        {
-            entries.erase(std::remove(entries.begin(), entries.end(), entry), entries.end());
-            return entry;
-        }
+        auto resultCopy = *result;
+        entries.erase(result);
+        return resultCopy;
     }
+
     return ConnectionEntry();
 }
 
@@ -46,10 +42,7 @@ void SlaveConnectionMonitor::eraseEntry(const QString &controllerName)
 {
     std::lock_guard<std::mutex> _lock(mMutex);
 
-    ConnectionEntry toErase;
-    toErase.controllerName = controllerName;
-
-    entries.erase(std::remove(entries.begin(), entries.end(), toErase), entries.end());
+    std::erase(entries, controllerName);
 
     qDebug() << "key " <<controllerName << " erased";
 }
@@ -58,13 +51,11 @@ bool SlaveConnectionMonitor::isAvailableForSending(const QString &controllerName
 {
     std::lock_guard<std::mutex> _lock(mMutex);
 
-    ConnectionEntry entry;
-    entry.controllerName = controllerName;
-
-    if(std::find(entries.begin(), entries.end(), entry) != entries.end())
+    if(std::ranges::any_of(entries, [&controllerName](const auto& x){return x == controllerName;}))
     {
         return false;
     }
+
     return true;
 }
 

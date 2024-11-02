@@ -8,17 +8,17 @@ PinMapping::PinMapping(int id)
 
 }
 
-int PinMapping::getId()
+int PinMapping::getId() const
 {
     return mId;
 }
 
-std::vector<PinIdentifier> PinMapping::getInputPins()
+std::vector<PinIdentifier> PinMapping::getInputPins() const
 {
     return mInputPins;
 }
 
-std::vector<PinIdentifier> PinMapping::getOutputPins()
+std::vector<PinIdentifier> PinMapping::getOutputPins() const
 {
     return mOutputPins;
 }
@@ -63,12 +63,12 @@ void PinMapping::setNofityPress(bool notifyPress)
     mNotifyPress = notifyPress;
 }
 
-bool PinMapping::containsOutputPin(const PinIdentifier &pinId)
+bool PinMapping::containsOutputPin(const PinIdentifier &pinId) const
 {
     return std::find(mOutputPins.begin(), mOutputPins.end(), pinId) != mOutputPins.end();
 }
 
-bool PinMapping::containsInputPin(const PinIdentifier &pinId)
+bool PinMapping::containsInputPin(const PinIdentifier &pinId) const
 {
     return std::find(mInputPins.begin(), mInputPins.end(), pinId) != mInputPins.end();
 }
@@ -83,15 +83,12 @@ std::vector<PinIdentifier> PinMapping::splitDbEntryToPinIds(const QString &entry
 
     auto entries = entry.split("**", Qt::SkipEmptyParts);
 
-    for(auto& entry: entries)
-    {
-        qDebug() << "entry: "<<entry;
-        PinIdentifier id;
-        auto values = entry.split(",");
-        id.mExpanderId = values[0].toInt();
-        id.mPinId = values[1].toInt();
-        pinIds.push_back(id);
-    }
+    std::ranges::transform(entries, std::back_inserter(pinIds), [](const auto& x){
+                                                                    PinIdentifier id;
+                                                                    auto values = x.split(",");
+                                                                    id.mExpanderId = values[0].toInt();
+                                                                    id.mPinId = values[1].toInt();
+                                                                    return id;});
 
     return pinIds;
 }

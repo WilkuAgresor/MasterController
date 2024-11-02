@@ -5,6 +5,7 @@
 #include <database/database.hpp>
 #include <QtConcurrent/QtConcurrent>
 #include <QDateTime>
+#include <ranges>
 
 #include "SensorDatabase.hpp"
 
@@ -46,74 +47,55 @@ HeatingHardware::HeatingHardware()
 
 void HeatingHardware::setZoneIsOn(quint16 zoneId, bool isOn)
 {
-    for(auto& zone : mHeatingZones)
+    if (auto it = std::ranges::find_if(mHeatingZones, [zoneId](const auto& zone) { return zone.mId == zoneId; });
+        it != mHeatingZones.end())
     {
-        if(zone.mId == zoneId)
-        {
-            zone.mIsOn = isOn;
-            return;
-        }
+        it->mIsOn = isOn;
     }
 }
 
 void HeatingHardware::setSubsystemIsOn(quint16 subsystemId, bool isOn)
 {
-    for(auto& subsystem : mHeatingSubsystems)
+    if (auto it = std::ranges::find_if(mHeatingSubsystems, [subsystemId](const auto& subsystem) { return subsystem.mId == subsystemId; });
+        it != mHeatingSubsystems.end())
     {
-        if(subsystem.mId == subsystemId)
-        {
-            subsystem.mIsOn = isOn;
-            return;
-        }
+        it->mIsOn = isOn;
     }
 }
 
 qint16 HeatingHardware::getZoneCurrentTemperature(quint16 zoneId)
 {
-    for(auto& zone : mHeatingZones)
+    if (auto it = std::ranges::find_if(mHeatingZones, [zoneId](const auto& zone) { return zone.mId == zoneId; });
+        it != mHeatingZones.end())
     {
-        if(zone.mId == zoneId)
-        {
-            return zone.getCurrentTemperature();
-        }
+        return it->getCurrentTemperature();
     }
     return TEMPERATURE_INVALID;
 }
 
 bool HeatingHardware::getZoneIsOn(quint16 zoneId)
 {
-    for(auto& zone : mHeatingZones)
+    if (auto it = std::ranges::find_if(mHeatingZones, [zoneId](const auto& zone) { return zone.mId == zoneId; });
+        it != mHeatingZones.end())
     {
-        if(zone.mId == zoneId)
-        {
-            if(getSubsystemIsOn(zone.mSubsystemId))
-            {
-               return zone.mIsOn;
-            }
-            return false;
-        }
+        return getSubsystemIsOn(it->mSubsystemId) ? it->mIsOn : false;
     }
     return false;
 }
 
 bool HeatingHardware::getSubsystemIsOn(quint16 subsystemId)
 {
-    for(auto& subsystem : mHeatingSubsystems)
+    if (auto it = std::ranges::find_if(mHeatingSubsystems, [subsystemId](const auto& subsystem) { return subsystem.mId == subsystemId; });
+        it != mHeatingSubsystems.end())
     {
-        if(subsystem.mId == subsystemId)
-        {
-            return subsystem.mIsOn;
-        }
+        return it->mIsOn;
     }
     return false;
 }
 
 void HeatingHardware::refreshTemperatureReading()
 {
-    for(auto& zone: mHeatingZones)
-    {
-        zone.refreshTemperatureReading();
-    }
+    std::ranges::for_each(mHeatingZones, [](auto& zone) { zone.refreshTemperatureReading(); });
 }
 
 HeatingZone::HeatingZone(quint16 zoneId):
@@ -129,12 +111,9 @@ void HeatingZone::addTemperatureSensor(quint16 sensorId, const QString &serialNu
 int16_t HeatingZone::getCurrentTemperature()
 {
     std::vector<int16_t> relevantTemperatures;
-    for(auto sensor: mSensors)
+    for(auto sensor: mSensors | std::views::filter([](const auto& x){ return x.mType == TemperatureSensorType::AIR;}))
     {
-        if(sensor.mType == TemperatureSensorType::AIR)
-        {
-            relevantTemperatures.push_back(sensor.mCurrentTemperature);
-        }
+        relevantTemperatures.push_back(sensor.mCurrentTemperature);
     }
 
     if(relevantTemperatures.size() == 1)
@@ -150,56 +129,53 @@ int16_t HeatingZone::getCurrentTemperature()
 
 void HeatingZone::refreshTemperatureReading()
 {
-    for(auto& sensor: mSensors)
-    {
-        sensor.refreshTemperatureReading();
-    }
+    std::ranges::for_each(mSensors, [](auto& sensor) { sensor.refreshTemperatureReading(); });
 }
 
 void TemperatureSensor::refreshTemperatureReading()
 {
-        bool ok = true;
+    bool ok = true;
 
-        QFile file(getSensorPath());
-        if (!file.open(QIODevice::ReadOnly | QIODevice::Text))
-        {
-            qDebug() << "Failed to open Temperature Sensor file";
-            ok = false;
-        }
+    QFile file(getSensorPath());
+    if (!file.open(QIODevice::ReadOnly | QIODevice::Text))
+    {
+        qDebug() << "Failed to open Temperature Sensor file";
+        ok = false;
+    }
+
+    if(ok)
+    {
+        auto tempString = QString(file.readLine());
+        qfloat16 realValue = tempString.toFloat(&ok);
 
         if(ok)
         {
-            auto tempString = QString(file.readLine());
-            qfloat16 realValue = tempString.toFloat(&ok);
-
-            if(ok)
+            mRetryCounter = 0;
+            realValue  = realValue * 100;
+            auto newValue = static_cast<qint16>(realValue);
+            if(newValue != mCurrentTemperature)
             {
-                mRetryCounter = 0;
-                realValue  = realValue * 100;
-                auto newValue = static_cast<qint16>(realValue);
-                if(newValue != mCurrentTemperature)
-                {
-                    mCurrentTemperature = newValue;
+                mCurrentTemperature = newValue;
 
-                    auto db = SensorDatabaseFactory::createDatabaseConnection("SensorRefresh");
-                    db->insertRecord(mSerialNumber, QDateTime::currentDateTime().toString(Qt::ISODate), mCurrentTemperature);
-                }
+                auto db = SensorDatabaseFactory::createDatabaseConnection("SensorRefresh");
+                db->insertRecord(mSerialNumber, QDateTime::currentDateTime().toString(Qt::ISODate), mCurrentTemperature);
             }
         }
+    }
 
-        if(!ok)
+    if(!ok)
+    {
+        qDebug() << "reading invalid";
+
+        if(mRetryCounter >= 5)
         {
-            qDebug() << "reading invalid";
-
-            if(mRetryCounter >= 5)
-            {
-                mCurrentTemperature = TEMPERATURE_INVALID;
-            }
-            else
-            {
-                mRetryCounter++;
-            }
+            mCurrentTemperature = TEMPERATURE_INVALID;
         }
+        else
+        {
+            mRetryCounter++;
+        }
+    }
 }
 
 QString TemperatureSensor::getSensorPath()

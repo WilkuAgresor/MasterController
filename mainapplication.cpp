@@ -34,17 +34,23 @@ uint64_t MainApplication::generateNewKey()
 
 void MainApplication::changeConnectionState(QString controllerName, ConnectionState state)
 {
-    if(state == ConnectionState::FAILURE)
+    switch (state) {
+    case ConnectionState::FAILURE:
         emit finished(controllerName, "Failed");
-    else if(state == ConnectionState::TIME_OUT)
-    {
+        break;
+    case ConnectionState::TIME_OUT:
         mKeyKeeper.eraseEntry(controllerName);
         emit finished(controllerName, "Timed out");
-    }
-    else if(state == ConnectionState::SUCCESS)
+        break;
+    case ConnectionState::SUCCESS:
         emit finished(controllerName, "Success");
-    else if(state == ConnectionState::IN_PROGRESS)
+        break;
+    case ConnectionState::IN_PROGRESS:
         emit inProgress(controllerName);
+        break;
+    default:
+        break;
+    }
 }
 
 

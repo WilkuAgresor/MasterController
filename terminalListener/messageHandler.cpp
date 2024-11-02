@@ -37,13 +37,11 @@ void MessageHandler::run()
     }
     else if(header.getType() == MessageType::TOPOLOGY_CHECKIN)
     {
-        for(auto& controller: mComponents->mControllers)
+        auto controller = std::ranges::find_if(mComponents->mControllers, [this](const auto& x){return x.ipAddr == mFromAddr.toString();});
+        if(controller != mComponents->mControllers.end())
         {
-            if(controller.ipAddr == mFromAddr.toString())
-            {
-                qDebug() << "topology checkin from " <<mFromAddr.toString();
-                controller.status = ControllerInfo::Status::ACTIVE;
-            }
+            qDebug() << "topology checkin from " <<mFromAddr.toString();
+            controller->status = ControllerInfo::Status::ACTIVE;
         }
     }
     else if(header.getType() == MessageType::TOPOLOGY_REQUEST_INIT)

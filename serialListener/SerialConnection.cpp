@@ -20,14 +20,17 @@ bool SerialConnection::initialize()
     {
         std::lock_guard<std::mutex> _lock(mReceiveMutex);
         auto db = DatabaseFactory::createDatabaseConnection("serial");
-        for(auto& controller: db->getControllers())
+
+        auto controllers = db->getControllers();
+
+        auto grandCentralControllerInfo = std::ranges::find_if(controllers, [](const auto& x){return x.type == ControllerInfo::Type::USB_SERIAL_GRAND_CENTRAL;});
+
+        if(grandCentralControllerInfo == controllers.end())
         {
-            if(controller.type == ControllerInfo::Type::USB_SERIAL_GRAND_CENTRAL)
-            {
-                mSerialDevice = controller.ipAddr;
-                break;
-            }
+            throw("Didn't find Grand Central controller in the database. This one is mandatory for serial connection");
         }
+
+        mSerialDevice = grandCentralControllerInfo->ipAddr;
     }
 
     int counter = 0;
@@ -108,8 +111,6 @@ bool SerialConnection::connect()
 
 bool SerialConnection::sendCommand(const QString &command)
 {
-    qDebug() << "sending command via serial before mutex: " << command;
-
     std::lock_guard<std::mutex> _lock(mSendMutex);
 
     qDebug() << "sending command via serial: " << command;
@@ -134,15 +135,9 @@ bool SerialConnection::sendCommand(const QString &command)
 void SerialConnection::handleIncomingCommand(QString command)
 try
 {
-    qDebug() << "receive serial before mutex command: "<<command;
-
-//    std::lock_guard<std::mutex> _lock(mReceiveMutex);
     qDebug() << "incoming command: "<<command;
 
-
     auto args = command.split(",", Qt::SkipEmptyParts);
-
-    qDebug() << "args: "<<args;
 
     auto commandType = args.at(0);
     if(commandType == "click")
@@ -174,25 +169,11 @@ try
     }
     else if(commandType == "info")
     {
-        QString command;
-        bool first = true;
-        for(auto& part: args)
-        {
-            if(first)
-            {
-                first = false;
-                continue;
-            }
-            command.append(part);
-        }
-        qDebug() << "command: "<<command;
-
         if(args.size() == 2 && args.at(1) == "Initialized all mcp's")
         {
             mComponents->mGrandCentral->setInitialized(true);
             qDebug() << "initialized all mcp";
         }
-
     }
     else if(commandType == "stateChange")
     {
@@ -214,45 +195,19 @@ catch(const std::exception& ex)
 
 void SerialConnection::setInputMapping(int expanderId, std::uint16_t mapping)
 {
-    QString command;
-    command.append("<");
-    command.append("setInMap");
-    command.append(",");
-    command.append(QString::number(expanderId));
-    command.append(",");
-    command.append(QString::number(mapping));
-    command.append(">");
-
+    auto command = QString("<setInMap,%1,%2>").arg(QString::number(expanderId), QString::number(mapping));
     sendCommand(command);
 }
 
 void SerialConnection::setOutputMapping(int expanderId, std::uint16_t mapping)
 {
-    QString command;
-    command.append("<");
-    command.append("setOutMap");
-    command.append(",");
-    command.append(QString::number(expanderId));
-    command.append(",");
-    command.append(QString::number(mapping));
-    command.append(">");
-
+    auto command = QString("<setOutMap,%1,%2>").arg(QString::number(expanderId), QString::number(mapping));
     sendCommand(command);
 }
 
 void SerialConnection::setGroupId(const PinIdentifier &input, std::uint16_t groupId)
 {
-    QString command;
-    command.append("<");
-    command.append("setGroupId");
-    command.append(",");
-    command.append(input.toStringSerial());
-    command.append(",");
-    command.append(QString::number(groupId));
-    command.append(">");
-
-    qDebug() << "command: "<<command;
-
+    QString command = QString("<setGroupId,%1,%2>").arg(input.toStringSerial(), QString::number(groupId));
     sendCommand(command);
 }
 
@@ -264,31 +219,13 @@ bool SerialConnection::getSessionId()
 
 void SerialConnection::addInputMapping(const PinIdentifier &input, const PinIdentifier &output)
 {
-    QString command;
-    command.append("<");
-    command.append("addInMap");
-    command.append(",");
-    command.append(input.toStringSerial());
-    command.append(",");
-    command.append(output.toStringSerial());
-    command.append(">");
-
-    qDebug() << "command: "<<command;
-
+    auto command = QString("<addInMap,%1,%2>").arg(input.toStringSerial(), output.toStringSerial());
     sendCommand(command);
 }
 
 void SerialConnection::removeInputMapping(const PinIdentifier &input, const PinIdentifier &output)
 {
-    QString command;
-    command.append("<");
-    command.append("remInMap");
-    command.append(",");
-    command.append(input.toStringSerial());
-    command.append(",");
-    command.append(output.toStringSerial());
-    command.append(">");
-
+    auto command = QString("<remInMap,%1,%2>").arg(input.toStringSerial(), output.toStringSerial());
     sendCommand(command);
 }
 
@@ -296,15 +233,7 @@ void SerialConnection::setNotifClick(const PinIdentifier &input, bool value)
 {
     int val = value ? 1:0;
 
-    QString command;
-    command.append("<");
-    command.append("notifClick");
-    command.append(",");
-    command.append(input.toStringSerial());
-    command.append(",");
-    command.append(QString::number(val));
-    command.append(">");
-
+    QString command = QString("<notifClick,%1,%2>").arg(input.toStringSerial(), QString::number(val));
     sendCommand(command);
 }
 
@@ -312,15 +241,7 @@ void SerialConnection::setNotifDoubleClick(const PinIdentifier &input, bool valu
 {
     int val = value ? 1:0;
 
-    QString command;
-    command.append("<");
-    command.append("notifDClick");
-    command.append(",");
-    command.append(input.toStringSerial());
-    command.append(",");
-    command.append(QString::number(val));
-    command.append(">");
-
+    auto command = QString("<notifDClick,%1,%2>").arg(input.toStringSerial(), QString::number(val));
     sendCommand(command);
 }
 
@@ -328,15 +249,7 @@ void SerialConnection::setNotifPress(const PinIdentifier &input, bool value)
 {
     int val = value ? 1:0;
 
-    QString command;
-    command.append("<");
-    command.append("notifPress");
-    command.append(",");
-    command.append(input.toStringSerial());
-    command.append(",");
-    command.append(QString::number(val));
-    command.append(">");
-
+    auto command = QString("<notifPress,%1,%2>").arg(input.toStringSerial(), QString::number(val));
     sendCommand(command);
 }
 
@@ -354,21 +267,7 @@ void SerialConnection::setInputState(const PinIdentifier &input, LogicState stat
 {
     qDebug() << "set admin state: "<< input.print();
 
-    QString command;
-    command.append("<");
-    command.append("adminChange,");
-    command.append(input.toStringSerial());
-    command.append(",");
-
-    if(state == LogicState::ON)
-    {
-        command.append("1>");
-    }
-    else
-    {
-        command.append("0>");
-    }
-
+    QString command = QString("<adminChange,%1,%2>").arg(input.toStringSerial(), state == LogicState::ON ? "1" : "0");
     sendCommand(command);
 }
 
@@ -376,29 +275,13 @@ void SerialConnection::setDefaultOutputState(const PinIdentifier &output, bool v
 {
     int val = value ? 1:0;
 
-    QString command;
-    command.append("<");
-    command.append("setDefOut");
-    command.append(",");
-    command.append(output.toStringSerial());
-    command.append(",");
-    command.append(QString::number(val));
-    command.append(">");
-
+    auto command = QString("<setDefOut,%1,%2>").arg(output.toStringSerial(), QString::number(val));
     sendCommand(command);
 }
 
 void SerialConnection::setInputPinTypeMirror(const PinIdentifier& output)
 {
-    QString command;
-    command.append("<");
-    command.append("setInputPinType");
-    command.append(",");
-    command.append(output.toStringSerial());
-    command.append(",");
-    command.append(QString::number(1));
-    command.append(">");
-
+    auto command = QString("<setInputPinType,%1,%2>").arg(output.toStringSerial(), QString::number(1));
     sendCommand(command);
 }
 
@@ -429,6 +312,18 @@ void SerialConnection::reprovisionAllOutputStates()
 
 void SerialConnection::handleReadyRead()
 {
+    auto trimMessage = [](QString& message)
+    {
+        if (message.endsWith(">\r\n"))
+        {
+            message.chop(3); // Remove ">\r\n"
+        }
+        else if (message.endsWith(">"))
+        {
+            message.chop(1); // Remove ">"
+        }
+    };
+
     std::unique_lock<std::mutex> lock(mReceiveMutex);
     while(mPort->canReadLine())
     {
@@ -440,15 +335,7 @@ void SerialConnection::handleReadyRead()
 
         for(auto& message: messages)
         {
-           if(message.endsWith(">\r\n"))
-           {
-               message.chop(3);
-           }
-           else if(message.endsWith(">"))
-           {
-               message.chop(1);
-           }
-
+            trimMessage(message);
             handleIncomingCommand(message);
         }
     }

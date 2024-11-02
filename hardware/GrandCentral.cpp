@@ -21,10 +21,8 @@ GrandCentral::GrandCentral(QObject *parent, Components *components)
         auto db = DatabaseFactory::createDatabaseConnection("hardware");
         auto pinMap = db->getGrandCentralPins();
 
-        for(auto& pair: pinMap)
-        {
-            mPins.emplace_back(new Pin(this, mSerialConnection, pair.first, pair.second));
-        }
+        std::ranges::transform(pinMap, std::back_inserter(mPins), [this](const auto& x){auto  pin = new Pin(this, mSerialConnection, x.first, x.second); return pin; });
+
         mMappings = db->getGrandCentralPinGroupings();
     }
 
@@ -64,24 +62,21 @@ void GrandCentral::setInputState(int mappingId, LogicState state)
 
     qDebug() << "mappings size: "<<mMappings.size();
 
-    for(auto& mapping: mMappings)
-    {
-        if(mapping.getId() == mappingId)
-        {
-            for(auto& pinId: mapping.getInputPins())
-            {
-                for(auto& physicalPin: mPins)
-                {
-                    if(physicalPin->getPinId() == pinId && physicalPin->getPinType() == PinType::VIRTUAL_INPUT)
-                    {
-                        qDebug() << "setting logic input state";
-                        physicalPin->setLogicInputState(state);
-                        break;
-                    }
-                }
-            }
+    auto setLogicInputStateForPin = [&](PinIdentifier pinId, LogicState state) {
+        auto it = std::find_if(mPins.begin(), mPins.end(), [&](Pin* pin) {
+            return pin->getPinId() == pinId && pin->getPinType() == PinType::VIRTUAL_INPUT;
+        });
 
-            break;
+        if (it != mPins.end()) {
+            qDebug() << "setting logic input state";
+            (*it)->setLogicInputState(state);
+        }
+    };
+
+    if(auto mapping = std::ranges::find_if(mMappings, [mappingId](const auto& x){return x.getId() == mappingId;}); mapping != mMappings.end())
+    {
+        for (const auto& pinId : mapping->getInputPins()) {
+            setLogicInputStateForPin(pinId, state);
         }
     }
 }
@@ -98,13 +93,11 @@ int GrandCentral::getPinsGroupingId(const PinIdentifier &pin)
         return -1;
     }
 
-    for(auto& grouping: mMappings)
+    if(auto result = std::ranges::find_if(mMappings, [&pin](const auto& x){return x.containsOutputPin(pin);}); result != mMappings.end())
     {
-        if(grouping.containsOutputPin(pin))
-        {
-            return grouping.getId();
-        }
+        return result->getId();
     }
+
     return -1;
 }
 
@@ -115,13 +108,11 @@ int GrandCentral::getInputPinsGroupingId(const PinIdentifier &pin)
         return -1;
     }
 
-    for(auto& grouping: mMappings)
+    if(auto result = std::ranges::find_if(mMappings, [&pin](const auto& x){return x.containsInputPin(pin);}); result != mMappings.end())
     {
-        if(grouping.containsInputPin(pin))
-        {
-            return grouping.getId();
-        }
+        return result->getId();
     }
+
     return -1;
 }
 
@@ -132,13 +123,11 @@ OutputState GrandCentral::getPinDefaultOutputState(const PinIdentifier &pin)
         return OutputState::UNDEFINED;
     }
 
-    for(const auto& pinData: mPins)
+    if(auto result = std::ranges::find_if(mPins, [&pin](const auto x){return x->getPinId()  == pin;}); result != mPins.end())
     {
-        if(pinData->getPinId() == pin)
-        {
-            return pinData->getDefaultState();
-        }
+        return (*result)->getDefaultState();
     }
+
     return OutputState::UNDEFINED;
 }
 
@@ -167,53 +156,52 @@ void GrandCentral::handleSessionIdChange(quint32 sessionId)
 {
     qDebug() << "sessionId update: "<<sessionId;
 
+    if(sessionId == 0)
+    {
+        return;
+    }
 
-        if(sessionId == 0)
-        {
-            return;
-        }
+    std::unique_lock<std::mutex> lock(mDbMutex);
 
-        std::unique_lock<std::mutex> lock(mDbMutex);
 
-        ControllerInfo controllerInfo;
+    auto db = DatabaseFactory::createDatabaseConnection("hardware");
 
-        auto db = DatabaseFactory::createDatabaseConnection("hardware");
-        for(auto& controller: db->getControllers())
-        {
-            if(controller.type == ControllerInfo::Type::USB_SERIAL_GRAND_CENTRAL)
-            {
-                controllerInfo = controller;
-                break;
-            }
-        }
+    auto controllers = db->getControllers();
 
-        auto forceControllerUpdate = QFile::exists(sForceControllerConfigurationFlagFile);
+    auto grandCentralControllerInfo = std::ranges::find_if(controllers, [](const auto& x){return x.type == ControllerInfo::Type::USB_SERIAL_GRAND_CENTRAL;});
 
-        qDebug() << "force controller update value: "<<forceControllerUpdate;
+    if(grandCentralControllerInfo == controllers.end())
+    {
+        throw("Didn't find Grand Central controller in the database. This one is mandatory");
+    }
 
-        if(sessionId != controllerInfo.key || forceControllerUpdate)
-        {
-            //grand central was rebooted. Need to send down the current configuration and update the sessionID in the Database
-            qDebug() << "new hardware session ID. Saving in the DB";
-            db->updateControllerCurKey(controllerInfo.name, sessionId);
-            controllerInfo.key = sessionId;
-            db.reset();
-            lock.unlock();
+    auto forceControllerUpdate = QFile::exists(sForceControllerConfigurationFlagFile);
 
-            initializePins();
-            mComponents->sendHardwareReprovisionNotif(controllerInfo);
-        }
-        else
-        {
-            lock.unlock();
-            qDebug() << "Known session ID, reprovisioning the DB data";
+    qDebug() << "force controller update value: "<<forceControllerUpdate;
 
-            mSerialConnection->terminateAll();
-            setInOutMappings();
-            mSerialConnection->initAll();
+    if(sessionId != grandCentralControllerInfo->key || forceControllerUpdate)
+    {
+        //grand central was rebooted. Need to send down the current configuration and update the sessionID in the Database
+        qDebug() << "new hardware session ID. Saving in the DB";
+        db->updateControllerCurKey(grandCentralControllerInfo->name, sessionId);
+        grandCentralControllerInfo->key = sessionId;
+        db.reset();
+        lock.unlock();
 
-            mComponents->sendHardwareReprovisionNotif(controllerInfo);
-        }
+        initializePins();
+        mComponents->sendHardwareReprovisionNotif(*grandCentralControllerInfo);
+    }
+    else
+    {
+        lock.unlock();
+        qDebug() << "Known session ID, reprovisioning the DB data";
+
+        mSerialConnection->terminateAll();
+        setInOutMappings();
+        mSerialConnection->initAll();
+
+        mComponents->sendHardwareReprovisionNotif(*grandCentralControllerInfo);
+    }
 }
 
 void GrandCentral::resetGrandCentralSettings()

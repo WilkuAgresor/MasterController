@@ -5,6 +5,7 @@
 #include <QDateTime>
 #include <LeonardoIpExecutor/LeoMessage.hpp>
 #include <LeonardoIpExecutor/OpenthermMessages.hpp>
+#include <ranges>
 
 
 HeatingAppComponents::HeatingAppComponents(QObject *parent, Components *components)
@@ -189,28 +190,27 @@ void HeatingAppComponents::handleSettingsUpdate(const HeatSettingsMessage &messa
 
         auto profileId = payload.mProfiles.at(0).mId;
 
-        for(auto& zoneSetting: database->getHeatZoneSettings(profileId))
-        {
-            for(auto& pendingChange: payload.mZoneSettings)
-            {
-                if(pendingChange.mZoneId == zoneSetting.mZoneId)
-                {
-                    if(pendingChange.mIsOn != zoneSetting.mIsOn)
-                    {
-                        database->setHeatZoneIsOn(pendingChange.mIsOn,
-                                                  pendingChange.mZoneId,
-                                                  profileId);
+        auto heatZoneSettings = database->getHeatZoneSettings(profileId);
 
-                        qDebug() << "setting changed zone on/off";
-                    }
-                    if(pendingChange.mSetTemperature != zoneSetting.mSetTemperature)
-                    {
-                        database->setHeatZoneTemperature(pendingChange.mSetTemperature,
-                                                         pendingChange.mZoneId,
-                                                         profileId);
-                        qDebug() << "setting changed zone temperature";
-                    }
-                    break;
+        for(const auto& pendingChange: payload.mZoneSettings)
+        {
+            if( auto currentSettingOpt = std::ranges::find_if(heatZoneSettings, [&pendingChange](const auto& zoneSetting) {return pendingChange.mZoneId == zoneSetting.mZoneId;});
+                currentSettingOpt != heatZoneSettings.end())
+            {
+                if(pendingChange.mIsOn != currentSettingOpt->mIsOn)
+                {
+                    database->setHeatZoneIsOn(pendingChange.mIsOn,
+                                              pendingChange.mZoneId,
+                                              profileId);
+
+                    qDebug() << "setting changed zone on/off";
+                }
+                if(pendingChange.mSetTemperature != currentSettingOpt->mSetTemperature)
+                {
+                    database->setHeatZoneTemperature(pendingChange.mSetTemperature,
+                                                     pendingChange.mZoneId,
+                                                     profileId);
+                    qDebug() << "setting changed zone temperature";
                 }
             }
         }
@@ -222,10 +222,7 @@ void HeatingAppComponents::handleSettingsUpdate(const HeatSettingsMessage &messa
         ReplyPayload replyPayload(Status::OK);
         ReplyMessage replyMessage(replyPayload);
 
-        qDebug() << "sending response: "<<replyMessage.toString() <<" to: "<<fromAddr.toString() <<":"<<header.mReplyPort;
-
         mSystemComponents->mSender->send(fromAddr, header.mReplyPort, replyMessage.toData());
-        qDebug() << "sent";
     }
 }
 
@@ -247,11 +244,8 @@ void HeatingAppComponents::handleSettingsRetrieve(const HeatRetrieveMessage &mes
     HeatSettingsMessage respMessage(respPayload);
 
     auto header = message.getHeader();
-    qDebug() << "sending response: "<<respMessage.toString() <<" to: "<<fromAddr.toString() <<":"<<header.mReplyPort;
 
     mSystemComponents->mSender->send(fromAddr, header.mReplyPort, respMessage.toData());
-    qDebug() << "sent";
-
 }
 
 void HeatingAppComponents::handleStatisticsRetrieve(const HeatRetrieveStatisticsMessage &message, QHostAddress fromAddr)
@@ -266,19 +260,18 @@ void HeatingAppComponents::handleStatisticsRetrieve(const HeatRetrieveStatistics
     {
         auto db = DatabaseFactory::createDatabaseConnection("HeatStatRetrieve");
         auto zoneId = db->getHeatZoneId(payload.mZoneName);
-        for(auto& zone: mHeatingHardware.mHeatingZones)
+
+        auto zoneIt = std::find_if(mHeatingHardware.mHeatingZones.begin(), mHeatingHardware.mHeatingZones.end(),
+                                   [zoneId](const auto& zone) { return zone.mId == zoneId; });
+
+        if (zoneIt != mHeatingHardware.mHeatingZones.end())
         {
-            if(zone.mId == zoneId)
+            auto sensorIt = std::find_if(zoneIt->mSensors.begin(), zoneIt->mSensors.end(),
+                                         [&payload](const auto& sensor) { return sensor.mType == payload.mSensorType; });
+
+            if (sensorIt != zoneIt->mSensors.end())
             {
-                for(auto sensor: zone.mSensors)
-                {
-                    if(sensor.mType == payload.mSensorType)
-                    {
-                        serialNumber = sensor.mSerialNumber;
-                        break;
-                    }
-                }
-                break;
+                serialNumber = sensorIt->mSerialNumber;
             }
         }
     }
@@ -317,20 +310,20 @@ void HeatingAppComponents::handleStatisticsRetrieve(const HeatRetrieveStatistics
     std::vector<TemperatureSensorDataEntry> page;
     do
     {
-        page.clear();
         page = db->getRecords(serialNumber, pageSize, offset);
         offset += pageSize;
-        for(auto& record: page)
+
+        for(const auto& record: page)
         {
-            auto date = QDateTime::fromString(record.mTimestamp, Qt::ISODate);
+            const auto date = QDateTime::fromString(record.mTimestamp, Qt::ISODate);
             if(date > startTime && date < finishTime)
             {
                 entryList.mEntries.push_back(record);
             }
         }
-        qDebug() << "page finished";
+        qDebug() << "page processed";
     }
-    while (page.size() >= pageSize);
+    while (!page.empty() && page.size() >= pageSize);
 
     HeatRetrieveStatisticsResponse respMessage(entryList);
 
@@ -384,13 +377,10 @@ void HeatingAppComponents::handleBoilerSettingsUpdate(const BoilerSettingsMessag
     }
     if(changed)
     {
-        for(auto terminal: mSystemComponents->mControllers)
+        for(const auto& terminal: mSystemComponents->mControllers | std::views::filter([](const auto& controller){return controller.type == ControllerInfo::Type::TERMINALv1;}))
         {
-            if(terminal.type == ControllerInfo::Type::TERMINALv1)
-            {
-                auto address = QHostAddress(terminal.ipAddr);
-                updateTerminalBoilerSettings(address);
-            }
+            auto address = QHostAddress(terminal.ipAddr);
+            updateTerminalBoilerSettings(address);
         }
     }
 
@@ -398,20 +388,18 @@ void HeatingAppComponents::handleBoilerSettingsUpdate(const BoilerSettingsMessag
 
 void HeatingAppComponents::updateBoilerHardware(const QString &name, int value)
 {
-    QHostAddress boilerControllerAddress;
-    for(auto controller: mSystemComponents->mControllers)
+    auto boilerControllerIt = std::ranges::find_if(mSystemComponents->mControllers, [this](const auto& controller){return isBoilerControllerById(controller.name);});
+
+    if(boilerControllerIt != mSystemComponents->mControllers.end())
     {
-        if(controller.type == ControllerInfo::Type::ARD_LEO && isBoilerControllerById(controller.name))
-        {
-           OpenthermSetMessage setMessage(name, value);
+       OpenthermSetMessage setMessage(name, value);
 
-           auto sendResult = mSystemComponents->mSender->sendRaw(controller.getIpAddress(), controller.port, setMessage.serialize());
+       auto sendResult = mSystemComponents->mSender->sendRaw(boilerControllerIt->getIpAddress(), boilerControllerIt->port, setMessage.serialize());
 
-           if(!sendResult)
-           {
-               qDebug() << "controller unreachable for boiler settings reprovision 2";
-           }
-        }
+       if(!sendResult)
+       {
+           qDebug() << "controller unreachable for boiler settings reprovision 2";
+       }
     }
 }
 
@@ -501,8 +489,5 @@ void HeatingAppComponents::handleHardwareReprovisionNotif(ControllerInfo control
                 qDebug() << "controller unreachable for boiler settings reprovision 2";
             }
         }
-
-
-
     }
 }

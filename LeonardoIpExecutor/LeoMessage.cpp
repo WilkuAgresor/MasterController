@@ -75,12 +75,7 @@ LeoMessageType LeoMessage::getType() const
 
 QByteArray LeoMessage::serialize()
 {
-    QString message;
-    for(int i=0; i < mCsvData.size(); i++)
-    {
-        message.append(mCsvData[i]);
-        message.append(',');
-    }    
+    QString message = mCsvData.join(',');
     return message.toUtf8();
 }
 
@@ -102,9 +97,7 @@ LeoSetMessage::LeoSetMessage(const QString &message)
 LeoSetMessage::LeoSetMessage(int expander, int port, int val)
     : LeoMessage(LeoMessageType::SET_VAL), mExpander(expander), mPort(port), mVal(val)
 {
-    mCsvData.push_back(QString::number(expander));
-    mCsvData.push_back(QString::number(port));
-    mCsvData.push_back(QString::number(val));
+    mCsvData = QStringList { QString::number(expander), QString::number(port), QString::number(val) };
 }
 
 LeoSetMessage::LeoSetMessage(const RemotePinSetting& setting)
@@ -136,8 +129,7 @@ LeoGetMessage::LeoGetMessage(const QString &message)
 LeoGetMessage::LeoGetMessage(int expander, int port)
     : LeoMessage(LeoMessageType::GET_VAL), mExpander(expander), mPort(port)
 {
-    mCsvData.push_back(QString::number(expander));
-    mCsvData.push_back(QString::number(port));
+    mCsvData = QStringList { QString::number(expander), QString::number(port)};
 }
 
 
@@ -157,7 +149,7 @@ LeoReplyMessage::LeoReplyMessage(const QString &message)
 LeoReplyMessage::LeoReplyMessage(int status)
     : LeoMessage(LeoMessageType::REPLY), mStatus(status)
 {
-    mCsvData.push_back(QString::number(status));
+    mCsvData = QStringList { QString::number(status) };
 }
 
 int LeoReplyMessage::getStatus() const
@@ -182,8 +174,7 @@ LeoRetrieveReplyMessage::LeoRetrieveReplyMessage(const QString &message)
 LeoRetrieveReplyMessage::LeoRetrieveReplyMessage(int status, int value)
     : LeoMessage(LeoMessageType::RETRIEVE_REPLY), mStatus(status), mValue(value)
 {
-    mCsvData.push_back(QString::number(status));
-    mCsvData.push_back(QString::number(value));
+    mCsvData = QStringList { QString::number(status), QString::number(value) };
 }
 
 int LeoRetrieveReplyMessage::getStatus() const
@@ -219,7 +210,7 @@ LeoSessionIdReplyMessage::LeoSessionIdReplyMessage(const QString &message)
 LeoSessionIdReplyMessage::LeoSessionIdReplyMessage(std::uint32_t sessionId)
     : LeoMessage(LeoMessageType::SESSION_ID_REPLY), mSessionId(sessionId)
 {
-    mCsvData.push_back(QString::number(sessionId));
+    mCsvData = QStringList { QString::number(sessionId) };
 }
 
 std::uint32_t LeoSessionIdReplyMessage::getSessionId()

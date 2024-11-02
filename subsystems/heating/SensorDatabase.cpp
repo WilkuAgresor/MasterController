@@ -36,14 +36,11 @@ void SensorDatabase::addSensorTableIfNoExist(const QString &serialNumber)
 {
     std::lock_guard<std::recursive_mutex> _lock(mMutex);
 
-    QString queryString = R"(CREATE TABLE IF NOT EXISTS ')";
-    queryString.append(serialNumber);
-    queryString.append(R"(' (
+    auto queryString = QString(R"(CREATE TABLE IF NOT EXISTS '%1' (
                        timestamp TEXT,
                        value INTEGER
-                   ); )");
+                   ); )").arg(serialNumber);
 
-    qDebug() << queryString;
 
     executeSqlQuery(queryString);
 }
@@ -52,29 +49,18 @@ void SensorDatabase::insertRecord(const QString &serialNumber, const QString &ti
 {
     std::lock_guard<std::recursive_mutex> _lock(mMutex);
 
-    QString queryString = R"(INSERT INTO ')";
-    queryString.append(serialNumber);
-    queryString.append(R"(' (timestamp, value) VALUES (')");
-    queryString.append(timestamp);
-    queryString.append(R"(', )");
-    queryString.append(QString::number(value));
-    queryString.append(R"();)");
-
-    qDebug() << queryString;
+    QString queryString = QString(R"(INSERT INTO '%1' (timestamp, value) VALUES ('%2', %3);)")
+                              .arg(serialNumber, timestamp, QString::number(value));
 
     executeSqlQuery(queryString);
-
 }
 
 void SensorDatabase::deleteRecordsByDate(const QString &serialNumber, const QString &date)
 {
     std::lock_guard<std::recursive_mutex> _lock(mMutex);
 
-    QString queryString = R"(DELETE FROM ')";
-    queryString.append(serialNumber);
-    queryString.append(R"(' WHERE timestamp REGEXP ')");
-    queryString.append(date);
-    queryString.append(R"(\S*';")");
+    QString queryString = QString(R"(DELETE FROM '%1' WHERE timestamp REGEXP '%2\\S*';)")
+                              .arg(serialNumber, date);
 
     executeSqlQuery(queryString);
 }
@@ -85,13 +71,8 @@ std::vector<TemperatureSensorDataEntry> SensorDatabase::getRecords(const QString
 
     std::vector<TemperatureSensorDataEntry> entries;
 
-    QString queryString = R"(SELECT * FROM ')";
-    queryString.append(serialNumber);
-    queryString.append(R"(' ORDER BY timestamp LIMIT )");
-    queryString.append(QString::number(limit));
-    queryString.append(" OFFSET ");
-    queryString.append(QString::number(offset));
-    queryString.append(R"(;)");
+    QString queryString = QString(R"(SELECT * FROM '%1' ORDER BY timestamp LIMIT %2 OFFSET %3;)")
+                              .arg(serialNumber, QString::number(limit), QString::number(offset));
 
     auto query = executeSqlQuery(queryString);
 
@@ -111,7 +92,7 @@ std::vector<TemperatureSensorDataEntry> SensorDatabase::getRecords(const QString
 
 QSqlQuery SensorDatabase::executeSqlQuery(const QString &query)
 {
-    //qDebug() << "DB query: "<< query;
+    qDebug() << "DB query: "<< query;
 
     if(mModuleName.isEmpty())
     {

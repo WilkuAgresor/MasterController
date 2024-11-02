@@ -1,5 +1,6 @@
 #include "LightsAppComponents.hpp"
 #include <components.hpp>
+#include <ranges>
 
 #include <../common/messages/replyMessage.hpp>
 #include <LeonardoIpExecutor/LeoMessage.hpp>
@@ -18,13 +19,6 @@ LightsAppComponents::LightsAppComponents(QObject *parent, Components *components
                      this, SLOT(handleStateChanged(PinIdentifier, bool)));
     QObject::connect(mSystemComponents, SIGNAL(hardwareReprovisionNotif(ControllerInfo)), this, SLOT(handleHardwareReprovisionNotif(ControllerInfo)));
 
-
-//    while(!mSystemComponents->mGrandCentral->isInitialized())
-//    {
-//        qDebug() << "Waiting for hardware initialization";
-//        std::this_thread::sleep_for(std::chrono::seconds(2));
-//    }
-//    reprovisionHardwareState();
 }
 
 void LightsAppComponents::reprovisionTerminalData(QHostAddress terminalAddr)
@@ -41,7 +35,6 @@ void LightsAppComponents::reprovisionTerminalData(QHostAddress terminalAddr)
     settingsPayload.mLightControllers = lightSettings;
 
     LightSettingsMessage message(settingsPayload);
-//    qDebug() <<"lights reprovision settings: " << settingsPayload.toString();
 
     mSystemComponents->mSender->send(terminalAddr, TERMINAL_LISTEN_PORT, message.toData());
 }
@@ -53,15 +46,10 @@ void LightsAppComponents::reprovisionHardwareState()
     auto database = DatabaseFactory::createDatabaseConnection("lights");
     auto settings = database->getLightSettings();
 
-
-    for(auto& light: settings)
+    for(const auto& light: settings | std::views::filter([](const auto& x){return x.mIsOnChanged;}))
     {
-        if(light.mIsOnChanged)
-        {
-            LogicState state = boolToLogicState(light.mIsOn); /*light.mIsOn ? LogicState::ON : LogicState::OFF;*/
-
-            mSystemComponents->mGrandCentral->setInputState(database->getLightGroupingId(light.mId), state);
-        }
+        LogicState state = boolToLogicState(light.mIsOn); /*light.mIsOn ? LogicState::ON : LogicState::OFF;*/
+        mSystemComponents->mGrandCentral->setInputState(database->getLightGroupingId(light.mId), state);
     }
 }
 
@@ -97,48 +85,44 @@ void LightsAppComponents::handleStateChanged(PinIdentifier pinId, bool state)
 
     auto currentLogicState = boolToLogicState(state);
 
-
-    for(const auto& [lightId, hardwareGroupId]: mLightToGroupingMap)
+    for(const auto& [lightId, hardwareGroupId]: mLightToGroupingMap | std::views::filter([pinGroupId](const auto& x){return x.second == pinGroupId;}))
     {
-        if(hardwareGroupId == pinGroupId)
+        bool stateChanged = false;
+        qDebug() << "output pin of light id: "<<lightId;
+
+        LightControllerSettings dbSettings;
+
         {
-            bool stateChanged = false;
-            qDebug() << "output pin of light id: "<<lightId;
+            std::lock_guard<std::mutex> _lock(mDbMutex);
 
-            LightControllerSettings dbSettings;
+            auto database = DatabaseFactory::createDatabaseConnection("lights");
+            dbSettings = database->getLightSetting(lightId);
 
+            qDebug() << "db state: "<<dbSettings.mIsOn;
+            auto dbLogicState = boolToLogicState(dbSettings.mIsOn);
+
+            if(currentLogicState != dbLogicState)
             {
-                std::lock_guard<std::mutex> _lock(mDbMutex);
-
-                auto database = DatabaseFactory::createDatabaseConnection("lights");
-                dbSettings = database->getLightSetting(lightId);
-
-                qDebug() << "db state: "<<dbSettings.mIsOn;
-                auto dbLogicState = boolToLogicState(dbSettings.mIsOn);
-
-                if(currentLogicState != dbLogicState)
-                {
-                    stateChanged = true;
-                    qDebug() << "STATE CHANGE!";
-                    database->setLightsIsOn(lightId, logicStateToBool(currentLogicState));
-                }
-
-                LightControllerSettings settings;
-                settings.mId = lightId;
-                settings.setIsOn(state);
-
-                LightSettingsPayload payload;
-                payload.mLightControllers.push_back(settings);
-                LightSettingsMessage message(payload);
-                QHostAddress address;
-
-                sendToTerminals(message, address);
+                stateChanged = true;
+                qDebug() << "STATE CHANGE!";
+                database->setLightsIsOn(lightId, logicStateToBool(currentLogicState));
             }
 
-            if(stateChanged)
-            {
-                handleRemoteLights(lightId);
-            }
+            LightControllerSettings settings;
+            settings.mId = lightId;
+            settings.setIsOn(state);
+
+            LightSettingsPayload payload;
+            payload.mLightControllers.push_back(settings);
+            LightSettingsMessage message(payload);
+            QHostAddress address;
+
+            sendToTerminals(message, address);
+        }
+
+        if(stateChanged)
+        {
+            handleRemoteLights(lightId);
         }
     }
 }
@@ -180,17 +164,14 @@ void LightsAppComponents::handleClicked(int /*lightId*/)
 
 void LightsAppComponents::sendToTerminals(const LightSettingsMessage &message, QHostAddress fromAddr)
 {
-    for(auto& controller: mSystemComponents->mControllers)
+    for(auto& controller: mSystemComponents->mControllers | std::views::filter([](const auto& x){ return x.type == ControllerInfo::Type::TERMINALv1;}))
     {
-        if(controller.type == ControllerInfo::Type::TERMINALv1)
+        auto address = QHostAddress(controller.ipAddr);
+        if(address != fromAddr)
         {
-            auto address = QHostAddress(controller.ipAddr);
-            if(address != fromAddr)
-            {
-                qDebug() << "sending "<<message.toString()<<" to "<<controller.ipAddr;
-                mSystemComponents->mSender->send(address, TERMINAL_LISTEN_PORT, message.toData());
-            }
-        }        
+            qDebug() << "sending "<<message.toString()<<" to "<<controller.ipAddr;
+            mSystemComponents->mSender->send(address, TERMINAL_LISTEN_PORT, message.toData());
+        }
     }
 }
 
@@ -260,12 +241,9 @@ void LightsAppComponents::handleLightsRetrieve(const LightsRetrieveMessage &mess
     LightSettingsMessage respMessage(respPayload);
 
     auto header = message.getHeader();
-  //  qDebug() << "sending response: "<<respMessage.toString() <<" to: "<<fromAddr.toString() <<":"<<header.mReplyPort;
 
     mSystemComponents->mSender->send(fromAddr, header.mReplyPort, respMessage.toData());
-    qDebug() << "reprov:";
     mSystemComponents->mGrandCentral->reprovisionOutputValues();
-    qDebug() << "after reprov:";
 }
 
 void LightsAppComponents::handleRemoteLights(int lightId)
@@ -307,14 +285,7 @@ void LightsAppComponents::handleRemoteLights(int lightId)
         auto settings = database->getDimmLightSettings(lightId);
         for(auto & setting: settings)
         {
-            if(!dbSettings.mIsOn)
-            {
-                setting.mValue = 0; //value 0 is OFF on PWM
-            }
-            else
-            {
-                setting.mValue = gammaCorrect(dbSettings.mDimm);
-            }
+            setting.mValue = dbSettings.mIsOn ? gammaCorrect(dbSettings.mDimm) : 0; // value 0 is OFF on PWM
 
             LeoSetMessage message(setting);
 

@@ -16,6 +16,10 @@ struct ConnectionEntry
     {
         return (controllerName == a.controllerName);
     }
+    bool operator==(const QString& name) const
+    {
+        return controllerName == name;
+    }
 };
 
 class SlaveConnectionMonitor

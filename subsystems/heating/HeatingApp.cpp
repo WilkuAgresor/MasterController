@@ -7,6 +7,7 @@
 #include <thread>
 #include <chrono>
 #include <cstdlib>
+#include <ranges>
 
 HeatingApp::HeatingApp(QObject *parent, Components *components)
     : AppBase(parent, components)
@@ -26,31 +27,32 @@ void HeatingApp::run()
         QString boilerControllerId {"boilerController"};
 
         mComponents->mHeatingComponents->mHeatingHardware.refreshTemperatureReading();
-        for(auto terminal: mComponents->mControllers)
+
+        for(const auto& terminal: mComponents->mControllers | std::views::filter([](const auto& x) {return x.type == ControllerInfo::Type::TERMINALv1; }))
         {
-            if(terminal.type == ControllerInfo::Type::TERMINALv1)
+            auto address = QHostAddress(terminal.ipAddr);
+            mComponents->mHeatingComponents->updateTerminalCurrentTemperatures(address);
+            mComponents->mHeatingComponents->updateTerminalBoilerSettings(address);
+        }
+
+        if(auto boilerController = std::ranges::find_if(mComponents->mControllers,
+                                                         [this](const auto& terminal){return mComponents->mHeatingComponents->isBoilerControllerById(terminal.name);});
+        boilerController != mComponents->mControllers.end())
+        {
+            qDebug() <<"periodic retrieve boiler settings";
+
+            OpenthermGetMessage message;
+            auto response = mComponents->mSender->sendReceiveRaw(boilerController->getIpAddress(), boilerController->port, message.serialize(), 1000);
+
+            if(response.isEmpty())
             {
-                auto address = QHostAddress(terminal.ipAddr);
-                mComponents->mHeatingComponents->updateTerminalCurrentTemperatures(address);
-                mComponents->mHeatingComponents->updateTerminalBoilerSettings(address);
+                qDebug() << "Boiler controller unreachable";
             }
-            else if(mComponents->mHeatingComponents->isBoilerControllerById(terminal.name))
+            else
             {
-                qDebug() <<"periodic retrieve boiler settings";
-
-                OpenthermGetMessage message;
-                auto response = mComponents->mSender->sendReceiveRaw(terminal.getIpAddress(), terminal.port, message.serialize(), 1000);
-
-                if(response.isEmpty())
-                {
-                    qDebug() << "Boiler controller unreachable";
-                }
-                else
-                {
-                    auto responseString = QString::fromUtf8(response);
-                    auto settings = parseOpenthermGetResponse(responseString);
-                    mComponents->mHeatingComponents->handleBoilerStateUpdate(settings);
-                }
+                auto responseString = QString::fromUtf8(response);
+                auto settings = parseOpenthermGetResponse(responseString);
+                mComponents->mHeatingComponents->handleBoilerStateUpdate(settings);
             }
         }
 
